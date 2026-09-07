@@ -1,0 +1,378 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  JOB_SEEKER
+  COMPANY_OWNER
+  COMPANY_RECRUITER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  TEMPORARY
+}
+
+enum WorkplaceType {
+  ON_SITE
+  REMOTE
+  HYBRID
+}
+
+enum ExperienceLevel {
+  NO_EXPERIENCE
+  ENTRY
+  JUNIOR
+  MID
+  SENIOR
+  LEAD
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  PAUSED
+  CLOSED
+  REJECTED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  REVIEWING
+  SHORTLISTED
+  INTERVIEWING
+  OFFER
+  HIRED
+  REJECTED
+}
+
+model User {
+  id                String       @id @default(uuid())
+  email             String       @unique
+  passwordHash      String
+  role              Role         @default(JOB_SEEKER)
+  isActive          Boolean      @default(true)
+  isEmailVerified   Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  profile           UserProfile?
+  companyMemberships CompanyMember[]
+  resumes           Resume[]
+  applications      Application[]
+  savedJobs         SavedJob[]
+  jobAlerts         JobAlert[]
+  auditLogs         AuditLog[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName      String
+  lastName       String
+  documentId     String?   // Cédula dominicana
+  phone          String?
+  headline       String?   // Ej. Desarrollador Full Stack & UI/UX
+  bio            String?   @db.Text
+  province       String?   // Ej. Santo Domingo, Santiago
+  city           String?
+  address        String?
+  avatarUrl      String?
+  linkedinUrl    String?
+  portfolioUrl   String?
+  isPublic       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("user_profiles")
+}
+
+model Company {
+  id             String          @id @default(uuid())
+  name           String
+  slug           String          @unique
+  rnc            String?         // RNC Registro Nacional del Contribuyente
+  industry       String          // Ej. Telecomunicaciones, Banca, Turismo, Call Center
+  description    String?         @db.Text
+  logoUrl        String?
+  coverUrl       String?
+  websiteUrl     String?
+  phone          String?
+  email          String?
+  province       String?         // Ej. Distrito Nacional
+  city           String?
+  address        String?
+  isVerified     Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  members        CompanyMember[]
+  jobs           Job[]
+
+  @@map("companies")
+}
+
+model CompanyMember {
+  id        String   @id @default(uuid())
+  companyId String
+  userId    String
+  role      Role     @default(COMPANY_RECRUITER)
+  createdAt DateTime @default(now())
+
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@map("company_members")
+}
+
+model Job {
+  id                 String           @id @default(uuid())
+  companyId          String
+  title              String
+  slug               String           @unique
+  category           String           // Ej. Tecnología, Ventas, Call Center
+  description        String           @db.Text
+  responsibilities   String?          @db.Text
+  requirements       String?          @db.Text
+  benefits           String?          @db.Text
+  jobType            JobType          @default(FULL_TIME)
+  workplaceType      WorkplaceType    @default(ON_SITE)
+  experienceLevel    ExperienceLevel  @default(MID)
+  salaryMin          Decimal?         @db.Decimal(10, 2)
+  salaryMax          Decimal?         @db.Decimal(10, 2)
+  salaryCurrency     String           @default("DOP") // DOP o USD
+  salaryPeriod       String           @default("MONTHLY") // MONTHLY o HOURLY
+  isSalaryPublic     Boolean          @default(true)
+  applyMethod        String           @default("PLATFORM") // PLATFORM o EMAIL
+  applyEmail         String?          // Correo directo para recibir CVs si applyMethod es EMAIL
+  province           String           // Ej. Santo Domingo
+  city               String?
+  status             JobStatus        @default(PUBLISHED)
+  viewsCount         Int              @default(0)
+  applicationsCount  Int              @default(0)
+  featured           Boolean          @default(false)
+  urgent             Boolean          @default(false)
+  publishedAt        DateTime?        @default(now())
+  expiresAt          DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  company            Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  skills             JobSkill[]
+  applications       Application[]
+  savedByUsers       SavedJob[]
+
+  @@index([province])
+  @@index([category])
+  @@index([status])
+  @@map("jobs")
+}
+
+model JobSkill {
+  id        String @id @default(uuid())
+  jobId     String
+  skillName String
+
+  job       Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_skills")
+}
+
+model Application {
+  id             String                     @id @default(uuid())
+  jobId          String
+  userId         String
+  resumeId       String?
+  status         ApplicationStatus          @default(APPLIED)
+  coverLetter    String?                    @db.Text
+  recruiterNotes String?                    @db.Text
+  rating         Int                        @default(0) // 1 a 5 estrellas
+  appliedAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  job            Job                        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume         Resume?                    @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  statusHistory  ApplicationStatusHistory[]
+
+  @@unique([jobId, userId])
+  @@map("applications")
+}
+
+model ApplicationStatusHistory {
+  id            String            @id @default(uuid())
+  applicationId String
+  status        ApplicationStatus
+  notes         String?           @db.Text
+  changedBy     String?           // Nombre o ID del reclutador
+  createdAt     DateTime          @default(now())
+
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("application_status_history")
+}
+
+model SavedJob {
+  id        String   @id @default(uuid())
+  userId    String
+  jobId     String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@map("saved_jobs")
+}
+
+model JobAlert {
+  id        String   @id @default(uuid())
+  userId    String
+  keyword   String?
+  category  String?
+  province  String?
+  jobType   JobType?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("job_alerts")
+}
+
+model Resume {
+  id                String                 @id @default(uuid())
+  userId            String
+  title             String                 @default("Mi Currículum Profesional")
+  summary           String?                @db.Text
+  templateName      String                 @default("modern") // modern, executive, tech, minimalist
+  isDefault         Boolean                @default(false)
+  atsScore          Int                    @default(85)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experiences       ResumeExperience[]
+  education         ResumeEducation[]
+  skills            ResumeSkill[]
+  languages         ResumeLanguage[]
+  certifications    ResumeCertification[]
+  applications      Application[]
+
+  @@map("resumes")
+}
+
+model ResumeExperience {
+  id          String    @id @default(uuid())
+  resumeId    String
+  company     String
+  position    String
+  startDate   String
+  endDate     String?
+  isCurrent   Boolean   @default(false)
+  description String?   @db.Text
+  city        String?
+  country     String?   @default("República Dominicana")
+  sortOrder   Int       @default(0)
+
+  resume      Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@map("resume_experiences")
+}
+
+model ResumeEducation {
+  id           String    @id @default(uuid())
+  resumeId     String
+  institution  String
+  degree       String
+  fieldOfStudy String?
+  startDate    String
+  endDate      String?
+  isCurrent    Boolean   @default(false)
+  sortOrder    Int       @default(0)
+
+  resume       Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@map("resume_education")
+}
+
+model ResumeSkill {
+  id       String @id @default(uuid())
+  resumeId String
+  name     String
+  level    String @default("Avanzado") // Básico, Intermedio, Avanzado, Experto
+
+  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@map("resume_skills")
+}
+
+model ResumeLanguage {
+  id          String @id @default(uuid())
+  resumeId    String
+  name        String // Ej. Español, Inglés
+  proficiency String @default("Nativo") // Básico, Intermedio, Avanzado, Nativo / Bilingüe
+
+  resume      Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@map("resume_languages")
+}
+
+model ResumeCertification {
+  id                  String  @id @default(uuid())
+  resumeId            String
+  name                String
+  issuingOrganization String
+  issueDate           String?
+  credentialUrl       String?
+
+  resume              Resume  @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@map("resume_certifications")
+}
+
+model AdSlot {
+  id          String   @id @default(uuid())
+  slotCode    String   @unique // HOME_TOP, SEARCH_MIDDLE, JOB_SIDEBAR, etc.
+  name        String
+  pageLocation String
+  adProvider  String   @default("GOOGLE_ADSENSE")
+  publisherId String?
+  slotId      String?
+  rawCode     String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("ad_slots")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   String?  @db.Text
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}

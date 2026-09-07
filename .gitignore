@@ -1,0 +1,36 @@
+# Archivos generados / temporales
+node_modules/
+.next/
+out/
+build/
+dist/
+*.pem
+.DS_Store
+
+# Variables de entorno
+.env
+.env.*
+
+# Archivos de depuración
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# Archivos de diseño / documentos fuera del proyecto (en la raíz)
+templates/
+Plataforma_Empleo_RD_Documento_Maestro.docx
+ChatGPT*.png
+*.psd
+"logo quisqueya talent.png"
+icono.jpeg
+icono.png
+logo.png
+personaje.jpeg
