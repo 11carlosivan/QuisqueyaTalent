@@ -30,7 +30,7 @@ router.get('/', async (_req: Request, res: Response) => {
 // 2. Perfil público de empresa por Slug
 router.get('/:slug', async (req: Request, res: Response) => {
   try {
-    const { slug } = req.params;
+    const slug = req.params.slug as string;
 
     const company = await prisma.company.findUnique({
       where: { slug },

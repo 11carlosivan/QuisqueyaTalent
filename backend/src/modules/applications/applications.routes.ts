@@ -35,6 +35,14 @@ router.post('/', authenticate, requireRole(Role.JOB_SEEKER), async (req: Request
       chosenResumeId = defaultResume?.id;
     }
 
+    // Validar obligatoriamente que el postulante tenga un currículum creado o guardado
+    if (!chosenResumeId) {
+      return res.status(400).json({
+        code: 'NO_RESUME',
+        error: 'Debes crear o subir tu currículum en tu perfil antes de postularte a esta vacante.',
+      });
+    }
+
     const application = await prisma.application.create({
       data: {
         jobId,
@@ -98,7 +106,7 @@ router.get('/my', authenticate, requireRole(Role.JOB_SEEKER), async (req: Reques
 // 3. Tablero ATS: Obtener candidatos de una vacante (Empresa)
 router.get('/job/:jobId', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
   try {
-    const { jobId } = req.params;
+    const jobId = req.params.jobId as string;
     const companyId = req.user!.companyId;
 
     const job = await prisma.job.findUnique({
@@ -127,6 +135,7 @@ router.get('/job/:jobId', authenticate, requireRole(Role.COMPANY_OWNER, Role.COM
             education: { orderBy: { sortOrder: 'asc' } },
             skills: true,
             languages: true,
+            certifications: true,
           },
         },
         statusHistory: {
@@ -144,7 +153,7 @@ router.get('/job/:jobId', authenticate, requireRole(Role.COMPANY_OWNER, Role.COM
 // 4. Cambiar estado en el pipeline ATS (Mover en Kanban)
 router.patch('/:id/status', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status, notes } = req.body;
 
     if (!status || !Object.values(ApplicationStatus).includes(status)) {
@@ -177,7 +186,7 @@ router.patch('/:id/status', authenticate, requireRole(Role.COMPANY_OWNER, Role.C
 // 5. Calificar candidato y agregar notas internas (Empresa)
 router.patch('/:id/feedback', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { rating, recruiterNotes } = req.body;
 
     const updated = await prisma.application.update({

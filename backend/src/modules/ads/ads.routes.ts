@@ -38,7 +38,7 @@ router.get('/admin/all', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN)
 // 3. Administración: Actualizar configuración de un AdSlot
 router.put('/admin/:id', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { isActive, publisherId, slotId, rawCode, name } = req.body;
 
     const updated = await prisma.adSlot.update({

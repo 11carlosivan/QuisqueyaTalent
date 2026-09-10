@@ -1,10 +1,12 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import path from 'path';
 import authRoutes from './modules/auth/auth.routes';
 import jobsRoutes from './modules/jobs/jobs.routes';
 import applicationsRoutes from './modules/applications/applications.routes';
 import resumesRoutes from './modules/resumes/resumes.routes';
 import companiesRoutes from './modules/companies/companies.routes';
+import candidatesRoutes from './modules/candidates/candidates.routes';
 import aiRoutes from './modules/ai/ai.routes';
 import adsRoutes from './modules/ads/ads.routes';
 import adminRoutes from './modules/admin/admin.routes';
@@ -17,6 +19,9 @@ export const createApp = () => {
   app.use(cors({ origin: true, credentials: true }));
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+  // Archivos estáticos subidos (certificados, fotos, etc.)
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Health check
   app.get('/api/health', async (_req: Request, res: Response) => {
@@ -40,6 +45,7 @@ export const createApp = () => {
   app.use('/api/applications', applicationsRoutes);
   app.use('/api/resumes', resumesRoutes);
   app.use('/api/companies', companiesRoutes);
+  app.use('/api/candidates', candidatesRoutes);
   app.use('/api/ai', aiRoutes);
   app.use('/api/ads', adsRoutes);
   app.use('/api/admin', adminRoutes);

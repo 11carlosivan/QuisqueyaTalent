@@ -209,7 +209,7 @@ export default function CandidateApplicationsPage() {
                                   isCurrent
                                     ? 'bg-blue-600 text-white ring-4 ring-blue-100'
                                     : isDone
-                                    ? 'bg-emerald-500 text-white'
+                                    ? 'bg-[#0051d5] text-white'
                                     : 'bg-slate-100 text-slate-400 border border-slate-200'
                                 }`}
                               >

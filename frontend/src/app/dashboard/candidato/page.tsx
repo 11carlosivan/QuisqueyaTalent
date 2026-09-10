@@ -18,6 +18,14 @@ import {
   Eye,
   Send,
   Loader2,
+  Star,
+  Plus,
+  Trash2,
+  Edit3,
+  X,
+  ShieldCheck,
+  Check,
+  User,
 } from 'lucide-react';
 
 export default function CandidateDashboardPage() {
@@ -26,7 +34,35 @@ export default function CandidateDashboardPage() {
 
   const [applications, setApplications] = useState<any[]>([]);
   const [resume, setResume] = useState<any>(null);
+  const [allResumes, setAllResumes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [newCvModalOpen, setNewCvModalOpen] = useState(false);
+  const [newCvTitle, setNewCvTitle] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const fetchDashboardData = async (authToken: string) => {
+    try {
+      const [appsData, resData] = await Promise.all([
+        fetch('http://localhost:5000/api/applications/my', {
+          headers: { Authorization: `Bearer ${authToken}` },
+        }).then((r) => r.json()),
+        fetch('http://localhost:5000/api/resumes/my', {
+          headers: { Authorization: `Bearer ${authToken}` },
+        }).then((r) => r.json()),
+      ]);
+
+      if (Array.isArray(appsData)) setApplications(appsData);
+      if (resData) {
+        if (resData.resume) setResume(resData.resume);
+        if (Array.isArray(resData.allResumes)) setAllResumes(resData.allResumes);
+      }
+    } catch (err) {
+      console.error('Error cargando datos del candidato:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -35,22 +71,107 @@ export default function CandidateDashboardPage() {
     }
 
     if (token) {
-      Promise.all([
-        fetch('http://localhost:5000/api/applications/my', {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then((r) => r.json()),
-        fetch('http://localhost:5000/api/resumes/my', {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then((r) => r.json()),
-      ])
-        .then(([appsData, resData]) => {
-          if (Array.isArray(appsData)) setApplications(appsData);
-          if (resData && resData.resume) setResume(resData.resume);
-        })
-        .catch(console.error)
-        .finally(() => setLoading(false));
+      fetchDashboardData(token);
     }
   }, [user, token, isLoading]);
+
+  // Cambiar Curriculum Principal
+  const handleSetPrimary = async (cvId: string) => {
+    if (!token) return;
+    setIsActionLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/resumes/${cvId}/set-primary`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFeedbackMessage({
+          text: '⭐ ¡Currículum Principal actualizado con éxito! Este es el que verán todas las empresas.',
+          type: 'success',
+        });
+        await fetchDashboardData(token);
+      } else {
+        setFeedbackMessage({
+          text: data.error || 'No se pudo actualizar el currículum principal',
+          type: 'error',
+        });
+      }
+    } catch (err) {
+      setFeedbackMessage({ text: 'Error de conexión con el servidor', type: 'error' });
+    } finally {
+      setIsActionLoading(false);
+      setTimeout(() => setFeedbackMessage(null), 4500);
+    }
+  };
+
+  // Crear nueva versión de CV
+  const handleCreateNewCv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !newCvTitle.trim()) return;
+    setIsActionLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/resumes/new', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: newCvTitle.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNewCvModalOpen(false);
+        setNewCvTitle('');
+        setFeedbackMessage({
+          text: '✨ ¡Nueva versión de currículum creada! Puedes editarla cuando gustes.',
+          type: 'success',
+        });
+        await fetchDashboardData(token);
+      } else {
+        setFeedbackMessage({
+          text: data.error || 'Error al crear la versión de currículum',
+          type: 'error',
+        });
+      }
+    } catch (err) {
+      setFeedbackMessage({ text: 'Error de conexión al crear versión de CV', type: 'error' });
+    } finally {
+      setIsActionLoading(false);
+      setTimeout(() => setFeedbackMessage(null), 4500);
+    }
+  };
+
+  // Eliminar versión secundaria de CV
+  const handleDeleteCv = async (cvId: string, title: string) => {
+    if (!token) return;
+    if (!confirm(`¿Seguro que deseas eliminar la versión "${title}"? Esta acción no se puede deshacer.`)) return;
+    setIsActionLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/resumes/${cvId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFeedbackMessage({
+          text: 'Versión de currículum eliminada correctamente.',
+          type: 'success',
+        });
+        await fetchDashboardData(token);
+      } else {
+        setFeedbackMessage({
+          text: data.error || 'No se pudo eliminar el currículum',
+          type: 'error',
+        });
+      }
+    } catch (err) {
+      setFeedbackMessage({ text: 'Error de conexión al eliminar CV', type: 'error' });
+    } finally {
+      setIsActionLoading(false);
+      setTimeout(() => setFeedbackMessage(null), 4500);
+    }
+  };
 
   if (isLoading || loading) {
     return (
@@ -72,7 +193,7 @@ export default function CandidateDashboardPage() {
       case 'INTERVIEWING':
         return <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full animate-pulse">Entrevista Agendada</span>;
       case 'OFFER':
-        return <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full">¡Oferta Laboral!</span>;
+        return <span className="bg-blue-50 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200">¡Oferta Laboral!</span>;
       case 'REJECTED':
         return <span className="bg-rose-100 text-rose-700 text-xs font-bold px-2.5 py-1 rounded-full">No seleccionado</span>;
       default:
@@ -83,10 +204,36 @@ export default function CandidateDashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50/60 pb-20 pt-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* Notificación flotante de feedback */}
+        {feedbackMessage && (
+          <div
+            className={`p-4 rounded-2xl border text-sm font-semibold flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top duration-300 ${
+              feedbackMessage.type === 'success'
+                ? 'bg-blue-50 border-blue-200 text-blue-900'
+                : 'bg-rose-50 border-rose-300 text-rose-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {feedbackMessage.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-blue-600" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-rose-600" />
+              )}
+              <span>{feedbackMessage.text}</span>
+            </div>
+            <button
+              onClick={() => setFeedbackMessage(null)}
+              className="text-slate-400 hover:text-slate-600 p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Banner de Bienvenida */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-extrabold text-2xl flex items-center justify-center shadow-md">
+            <div className="w-16 h-16 rounded-2xl bg-[#001428] text-white font-extrabold text-2xl flex items-center justify-center shadow-sm">
               {user?.profile?.firstName?.[0] || 'C'}
             </div>
             <div>
@@ -94,30 +241,37 @@ export default function CandidateDashboardPage() {
                 <h1 className="text-2xl font-extrabold text-[#001428] font-['Plus_Jakarta_Sans']">
                   ¡Hola, {user?.profile?.firstName || 'Candidato'}!
                 </h1>
-                <span className="bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-0.5 rounded-full border border-blue-200/60">
+                <span className="bg-blue-50 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded-full border border-blue-200/60">
                   Candidato Activo
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                {user?.profile?.headline || 'Gestiona tu currículum y da seguimiento a tus postulaciones'}
+                {user?.profile?.headline || 'Gestiona tus versiones de currículum y da seguimiento a tus postulaciones'}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/dashboard/candidato/cv"
-              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm shadow-emerald-500/20"
+              href="/dashboard/candidato/perfil"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm"
             >
-              <Sparkles className="w-4 h-4" />
-              Editar CV con IA
+              <User className="w-4 h-4" />
+              Mi Perfil Profesional (LinkedIn)
+            </Link>
+            <Link
+              href="/dashboard/candidato/cv"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 border border-slate-200"
+            >
+              <FileText className="w-4 h-4 text-blue-600" />
+              Mis Versiones de CV
             </Link>
             <Link
               href="/"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5"
             >
-              <Briefcase className="w-4 h-4" />
-              Buscar Nuevos Empleos
+              <Briefcase className="w-4 h-4 text-slate-500" />
+              Buscar Empleos
             </Link>
           </div>
         </div>
@@ -127,17 +281,17 @@ export default function CandidateDashboardPage() {
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Puntuación ATS
+                Puntuación ATS Principal
               </span>
-              <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-                <Sparkles className="w-4 h-4" />
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-700">
+                <Sparkles className="w-4 h-4 text-slate-600" />
               </span>
             </div>
             <div className="text-3xl font-black text-slate-900 font-['Plus_Jakarta_Sans']">
               {resume?.atsScore || 94}%
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Alta compatibilidad con reclutadores
+            <div className="text-[11px] text-slate-600 font-medium mt-1 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /> Alta compatibilidad con reclutadores
             </div>
           </div>
 
@@ -146,8 +300,8 @@ export default function CandidateDashboardPage() {
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Postulaciones
               </span>
-              <span className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                <Send className="w-4 h-4" />
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-700">
+                <Send className="w-4 h-4 text-slate-600" />
               </span>
             </div>
             <div className="text-3xl font-black text-slate-900 font-['Plus_Jakarta_Sans']">
@@ -161,42 +315,42 @@ export default function CandidateDashboardPage() {
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Visualizaciones CV
+                Versiones de CV
               </span>
-              <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-                <Eye className="w-4 h-4" />
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-700">
+                <FileText className="w-4 h-4 text-slate-600" />
               </span>
             </div>
             <div className="text-3xl font-black text-slate-900 font-['Plus_Jakarta_Sans']">
-              48
+              {allResumes.length || 1}
             </div>
             <div className="text-[11px] text-slate-500 font-medium mt-1">
-              Empresas vieron tu perfil
+              Currículums en tu perfil
             </div>
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Alertas Activas
+                Ubicación Preferida
               </span>
-              <span className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                <Clock className="w-4 h-4" />
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-700">
+                <MapPin className="w-4 h-4 text-slate-600" />
               </span>
             </div>
-            <div className="text-3xl font-black text-slate-900 font-['Plus_Jakarta_Sans']">
-              Santo Domingo
+            <div className="text-3xl font-black text-slate-900 font-['Plus_Jakarta_Sans'] truncate">
+              {user?.profile?.province || 'Santo Domingo'}
             </div>
             <div className="text-[11px] text-slate-500 font-medium mt-1">
-              Notificaciones por correo
+              República Dominicana
             </div>
           </div>
         </div>
 
-        {/* Sección de Postulaciones y CV */}
+        {/* SECCIÓN PRINCIPAL: POSTULACIONES Y GESTIÓN DE CURRÍCULUMS */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Postulaciones Recientes (8 cols) */}
-          <div className="lg:col-span-8 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+          {/* Postulaciones Recientes (7 cols) */}
+          <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div>
                 <h2 className="text-lg font-bold text-[#001428] font-['Plus_Jakarta_Sans']">
@@ -227,7 +381,7 @@ export default function CandidateDashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {applications.map((app) => (
+                {applications.slice(0, 5).map((app) => (
                   <div
                     key={app.id}
                     className="p-4 rounded-2xl border border-slate-200 hover:border-blue-300 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -264,45 +418,199 @@ export default function CandidateDashboardPage() {
             )}
           </div>
 
-          {/* Tarjeta de CV (4 cols) */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-gradient-to-br from-[#0F2942] to-[#001428] text-white rounded-3xl p-6 shadow-md border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-sky-300">
-                  Tu CV Profesional
-                </span>
-                <span className="bg-emerald-400/20 text-emerald-300 text-[10px] font-extrabold px-2 py-0.5 rounded border border-emerald-400/30">
-                  Listo para descargar
-                </span>
+          {/* GESTIÓN DE MÚLTIPLES CVs (5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900 font-['Plus_Jakarta_Sans'] flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    Mis Versiones de Currículum
+                  </h2>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Elige cuál es tu CV Principal (el que verán todas las empresas)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewCvModalOpen(true)}
+                  className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Nueva Versión
+                </button>
               </div>
 
-              <h3 className="text-lg font-bold font-['Plus_Jakarta_Sans']">
-                {resume?.title || 'Mi Currículum Quisqueya Talent'}
-              </h3>
+              {/* Lista de Versiones de CV */}
+              <div className="space-y-3">
+                {allResumes.map((cvItem) => {
+                  const isPrimary = cvItem.isDefault;
 
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Tu currículum incluye {resume?.experiences?.length || 2} experiencias y{' '}
-                {resume?.skills?.length || 6} habilidades con optimización semántica ATS.
-              </p>
+                  return (
+                    <div
+                      key={cvItem.id}
+                      className={`p-4 rounded-2xl border transition-all ${
+                        isPrimary
+                          ? 'border-blue-300 bg-blue-50/40 shadow-xs'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-slate-900">
+                              {cvItem.title}
+                            </span>
+                            {isPrimary ? (
+                              <span className="bg-blue-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                                <Star className="w-3 h-3 fill-white" /> CV Principal
+                              </span>
+                            ) : (
+                              <span className="bg-slate-100 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                                Versión Secundaria
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500">
+                            Puntuación ATS: <span className="font-bold text-blue-700">{cvItem.atsScore}%</span> • {cvItem.experiences?.length || 0} exp. • {cvItem.skills?.length || 0} hab.
+                          </p>
+                        </div>
+                      </div>
 
-              <div className="pt-2 space-y-2">
+                      {/* Barra de Acciones del CV */}
+                      <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <div>
+                          {isPrimary ? (
+                            <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Visible para reclutadores
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isActionLoading}
+                              onClick={() => handleSetPrimary(cvItem.id)}
+                              className="text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-white border border-blue-200 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            >
+                              <Star className="w-3 h-3 text-amber-500" />
+                              Establecer como Principal
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <Link
+                            href={`/dashboard/candidato/cv?resumeId=${cvItem.id}`}
+                            className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition"
+                            title="Editar esta versión"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </Link>
+
+                          {!isPrimary && allResumes.length > 1 && (
+                            <button
+                              type="button"
+                              disabled={isActionLoading}
+                              onClick={() => handleDeleteCv(cvItem.id, cvItem.title)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer disabled:opacity-50"
+                              title="Eliminar versión"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Botón Acceso Rápido al Constructor */}
+              <div className="pt-2">
                 <Link
                   href="/dashboard/candidato/cv"
-                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-sm"
+                  className="w-full bg-[#0051d5] hover:bg-[#0041ab] text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-sm"
                 >
-                  <Sparkles className="w-4 h-4" /> Editar y Mejorar con IA
-                </Link>
-                <Link
-                  href="/dashboard/candidato/cv"
-                  className="w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
-                >
-                  <Download className="w-4 h-4" /> Descargar en PDF
+                  <Sparkles className="w-4 h-4 text-blue-200" />
+                  Abrir Editor de CV con Inteligencia Artificial
                 </Link>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* MODAL CREAR NUEVA VERSIÓN DE CV */}
+      {newCvModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setNewCvModalOpen(false)}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Plus className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900 font-['Plus_Jakarta_Sans']">
+                  Nueva Versión de Currículum
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Crea una variante adaptada a otro sector laboral
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateNewCv} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nombre o Título de la Versión:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newCvTitle}
+                  onChange={(e) => setNewCvTitle(e.target.value)}
+                  placeholder="Ej. CV - Desarrollo Web / CV - Gerencia Comercial"
+                  className="w-full text-xs p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Se duplicarán tus datos base para que puedas personalizar la experiencia y palabras clave para esta área.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setNewCvModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isActionLoading || !newCvTitle.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition disabled:opacity-50"
+                >
+                  {isActionLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Creando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      Crear Versión
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

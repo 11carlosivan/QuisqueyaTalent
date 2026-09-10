@@ -30,7 +30,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     if (province && province !== 'all' && province !== 'Todas') {
-      where.province = String(province);
+      where.province = { contains: String(province) };
     }
 
     if (jobType && jobType !== 'all') {
@@ -126,7 +126,7 @@ router.get('/company/mine', authenticate, requireRole(Role.COMPANY_OWNER, Role.C
 // 4. Detalle de empleo por Slug (Público con SEO)
 router.get('/:slug', async (req: Request, res: Response) => {
   try {
-    const { slug } = req.params;
+    const slug = req.params.slug as string;
 
     const job = await prisma.job.findUnique({
       where: { slug },
@@ -251,7 +251,7 @@ router.post('/', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECR
 // 6. Actualizar vacante
 router.put('/:id', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECRUITER, Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const companyId = req.user!.companyId;
 
     const existing = await prisma.job.findUnique({ where: { id } });
@@ -277,7 +277,7 @@ router.put('/:id', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RE
 // 7. Cambiar estado de vacante (Pausar, Cerrar, Reactivar)
 router.patch('/:id/status', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status } = req.body;
 
     const job = await prisma.job.update({

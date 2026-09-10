@@ -187,7 +187,7 @@ export default function AdminDashboardPage() {
             <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
               Vacantes Publicadas
             </div>
-            <div className="text-2xl font-black text-emerald-600 font-['Plus_Jakarta_Sans']">
+            <div className="text-2xl font-black text-blue-600 font-['Plus_Jakarta_Sans']">
               {metrics?.publishedJobs || jobs.length || 4}
             </div>
           </div>
@@ -424,8 +424,8 @@ export default function AdminDashboardPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-sm text-slate-900">{c.name}</span>
                       {c.isVerified ? (
-                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verificada
+                        <span className="bg-blue-50 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-blue-200">
+                          <CheckCircle2 className="w-3 h-3 text-blue-600" /> Verificada
                         </span>
                       ) : (
                         <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -449,7 +449,7 @@ export default function AdminDashboardPage() {
                       className={`text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer ${
                         c.isVerified
                           ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
-                          : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
+                          : 'bg-blue-600 text-white hover:bg-blue-700 shadow-xs'
                       }`}
                     >
                       {c.isVerified ? 'Quitar Verificación' : 'Verificar Empresa ✓'}

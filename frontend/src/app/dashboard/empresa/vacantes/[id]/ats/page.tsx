@@ -22,6 +22,8 @@ import {
   Loader2,
   X,
   Send,
+  ExternalLink,
+  Eye,
 } from 'lucide-react';
 
 export default function JobATSPage() {
@@ -42,7 +44,7 @@ export default function JobATSPage() {
     { key: 'REVIEWING', label: 'En Revisión', color: 'border-blue-400' },
     { key: 'SHORTLISTED', label: 'Preseleccionados', color: 'border-indigo-400' },
     { key: 'INTERVIEWING', label: 'Entrevista', color: 'border-amber-400' },
-    { key: 'OFFER', label: 'Oferta / Contratado', color: 'border-emerald-400' },
+    { key: 'OFFER', label: 'Oferta / Contratado', color: 'border-blue-500' },
   ];
 
   const fetchCandidates = async () => {
@@ -151,9 +153,9 @@ export default function JobATSPage() {
           <div className="flex items-center gap-3">
             <Link
               href={`/dashboard/empresa/vacantes/${jobId}/social`}
-              className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition"
             >
-              <Share2 className="w-4 h-4 text-purple-600" />
+              <Share2 className="w-4 h-4 text-slate-600" />
               Generar Creativo Social con IA
             </Link>
           </div>
@@ -216,7 +218,7 @@ export default function JobATSPage() {
                             </div>
                           </div>
 
-                          <div className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                          <div className="bg-blue-50 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-blue-200">
                             ATS: {app.resume?.atsScore || 94}%
                           </div>
                         </div>
@@ -301,6 +303,20 @@ export default function JobATSPage() {
                   <span>📱 {selectedApp.user?.profile?.phone || 'No especificado'}</span>
                   <span>📍 {selectedApp.user?.profile?.province}</span>
                 </div>
+
+                {selectedApp.user?.id && (
+                  <div className="mt-3">
+                    <Link
+                      href={`/candidatos/${selectedApp.user?.id}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Ver Perfil Profesional Completo (Estilo LinkedIn & Certificados)
+                      <ExternalLink className="w-3 h-3 ml-0.5" />
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -319,7 +335,7 @@ export default function JobATSPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-extrabold text-slate-900">Currículum Vitae</h3>
-                  <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                  <span className="bg-blue-50 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded-full border border-blue-200">
                     Puntuación ATS: {selectedApp.resume?.atsScore}%
                   </span>
                 </div>

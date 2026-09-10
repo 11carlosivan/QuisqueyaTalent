@@ -71,7 +71,7 @@ export default function CompanyDashboardPage() {
                 <h1 className="text-2xl font-extrabold text-[#001428] font-['Plus_Jakarta_Sans']">
                   {user?.company?.name || 'Panel de Empresa'}
                 </h1>
-                <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                <span className="bg-blue-50 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded-full border border-blue-200">
                   Empresa Verificada
                 </span>
               </div>
@@ -99,14 +99,14 @@ export default function CompanyDashboardPage() {
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Vacantes Publicadas
               </span>
-              <span className="p-2 rounded-xl bg-blue-50 text-blue-600">
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-700">
                 <Briefcase className="w-4 h-4" />
               </span>
             </div>
             <div className="text-3xl font-black text-slate-900 font-['Plus_Jakarta_Sans']">
               {jobs.length}
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold mt-1">
+            <div className="text-[11px] text-blue-600 font-semibold mt-1">
               Todas activas en el buscador
             </div>
           </div>
@@ -116,14 +116,14 @@ export default function CompanyDashboardPage() {
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Candidatos Recibidos
               </span>
-              <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-700">
                 <Users className="w-4 h-4" />
               </span>
             </div>
             <div className="text-3xl font-black text-slate-900 font-['Plus_Jakarta_Sans']">
               {totalApplications}
             </div>
-            <div className="text-[11px] text-indigo-600 font-semibold mt-1">
+            <div className="text-[11px] text-slate-500 font-semibold mt-1">
               Listos en tu tablero ATS
             </div>
           </div>
@@ -133,7 +133,7 @@ export default function CompanyDashboardPage() {
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Vistas de Vacantes
               </span>
-              <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-700">
                 <Eye className="w-4 h-4" />
               </span>
             </div>
@@ -150,14 +150,14 @@ export default function CompanyDashboardPage() {
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Asistente de IA
               </span>
-              <span className="p-2 rounded-xl bg-amber-50 text-amber-600">
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-700">
                 <Sparkles className="w-4 h-4" />
               </span>
             </div>
             <div className="text-3xl font-black text-slate-900 font-['Plus_Jakarta_Sans']">
               Activo
             </div>
-            <div className="text-[11px] text-amber-700 font-semibold mt-1">
+            <div className="text-[11px] text-slate-600 font-semibold mt-1">
               Redacción y Creativos Redes
             </div>
           </div>
@@ -205,7 +205,7 @@ export default function CompanyDashboardPage() {
                       >
                         {job.title}
                       </Link>
-                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      <span className="bg-blue-50 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200">
                         {job.status}
                       </span>
                     </div>
@@ -231,9 +231,9 @@ export default function CompanyDashboardPage() {
                     {/* Botón Redes Sociales con IA */}
                     <Link
                       href={`/dashboard/empresa/vacantes/${job.id}/social`}
-                      className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-purple-200/80"
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200"
                     >
-                      <Share2 className="w-4 h-4 text-purple-600" />
+                      <Share2 className="w-4 h-4 text-slate-600" />
                       Creativo Social IA
                     </Link>
 

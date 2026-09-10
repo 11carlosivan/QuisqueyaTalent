@@ -153,7 +153,7 @@ export default function CompanyProfilePage() {
                       {job.salaryMin && (
                         <>
                           <span>•</span>
-                          <span className="text-emerald-700 font-bold">
+                          <span className="text-slate-900 font-bold">
                             RD$ {Number(job.salaryMin).toLocaleString()} - RD$ {Number(job.salaryMax).toLocaleString()}
                           </span>
                         </>

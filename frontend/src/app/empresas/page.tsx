@@ -75,7 +75,7 @@ export default function CompaniesDirectoryPage() {
                 </div>
 
                 <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                  <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">
                     {c._count?.jobs || 0} Vacantes activas
                   </span>
                   <Link

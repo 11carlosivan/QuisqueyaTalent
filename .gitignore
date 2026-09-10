@@ -33,4 +33,9 @@ ChatGPT*.png
 icono.jpeg
 icono.png
 logo.png
+*quisqueya*talent*.png
 personaje.jpeg
+
+# Archivos subidos por usuarios
+backend/uploads/*
+!backend/uploads/**/.gitkeep

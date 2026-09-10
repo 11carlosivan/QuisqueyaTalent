@@ -191,8 +191,12 @@ const MONTHS = [
 
 const YEARS = ['Año', ...Array.from({ length: 45 }, (_, i) => String(2026 - i))];
 
-// Renderizador de miniaturas para el drawer horizontal de plantillas estilo CVwizard
-const renderMiniTemplateThumbnail = (id: TemplateId, color: string) => {
+// Renderizador de miniaturas de documentos reales para el modal y el drawer
+const renderTemplateRealSheet = (
+  id: TemplateId,
+  color: string,
+  personal?: { firstName?: string; lastName?: string; targetJob?: string; photoUrl?: string }
+) => {
   const norm =
     id === 'curved' ? 'circular' :
     id === 'executive' ? 'cronologica' :
@@ -203,238 +207,751 @@ const renderMiniTemplateThumbnail = (id: TemplateId, color: string) => {
     id === 'ats' ? 'clasica' :
     id;
 
+  const fName = personal?.firstName || 'Carlos';
+  const lName = personal?.lastName || 'Rosario';
+  const job = personal?.targetJob || 'Gerente de Proyectos TI';
+  const photo = personal?.photoUrl;
+  const initials = `${fName[0] || 'C'}${lName[0] || 'R'}`;
+
   switch (norm) {
     case 'cronologica':
       return (
-        <div className="w-full h-full bg-white flex flex-col p-1.5 space-y-1">
-          <div className="w-full h-1 rounded" style={{ backgroundColor: color }} />
-          <div className="flex justify-between items-center pt-0.5">
-            <div className="space-y-0.5 flex-1">
-              <div className="w-12 h-1.5 bg-slate-800 rounded-xs" />
-              <div className="w-8 h-1 bg-slate-400 rounded-xs" />
+        <div className="w-full h-full bg-white flex flex-col select-none text-[6px] leading-tight overflow-hidden">
+          {/* Banda de acento superior */}
+          <div className="w-full h-1.5 shrink-0" style={{ backgroundColor: color }} />
+          <div className="p-2 flex-1 flex flex-col justify-between space-y-1">
+            {/* Cabecera con Foto */}
+            <div className="flex items-start justify-between pb-1.5 border-b border-slate-200">
+              <div className="space-y-0.5">
+                <div className="text-[8.5px] font-black text-slate-900 tracking-tight leading-none uppercase">
+                  {fName} {lName}
+                </div>
+                <div className="text-[5.5px] font-bold uppercase tracking-wider" style={{ color }}>
+                  {job}
+                </div>
+                <div className="text-[4.5px] text-slate-500 pt-0.5 flex items-center gap-1">
+                  <span>carlos@email.com</span>
+                  <span>•</span>
+                  <span>+1 809-555-3421</span>
+                  <span>•</span>
+                  <span>Santo Domingo</span>
+                </div>
+              </div>
+              {photo ? (
+                <div className="w-6 h-6 rounded-md overflow-hidden border shrink-0" style={{ borderColor: color }}>
+                  <img src={photo} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-6 h-6 rounded-md shrink-0 flex items-center justify-center text-white font-extrabold text-[7px]" style={{ backgroundColor: color }}>
+                  {initials}
+                </div>
+              )}
             </div>
-            <div className="w-4 h-4 rounded-xs bg-slate-200 shrink-0" />
-          </div>
-          <div className="w-full h-0.5 bg-slate-200" />
-          <div className="space-y-1 pt-1 flex-1">
-            <div className="w-10 h-1 rounded-xs" style={{ backgroundColor: color }} />
-            <div className="w-full h-0.5 bg-slate-200 rounded-xs" />
-            <div className="w-4/5 h-0.5 bg-slate-200 rounded-xs" />
-            <div className="w-10 h-1 rounded-xs mt-1" style={{ backgroundColor: color }} />
-            <div className="w-full h-0.5 bg-slate-200 rounded-xs" />
+
+            {/* Perfil */}
+            <div className="space-y-0.5">
+              <div className="text-[5.5px] font-black uppercase tracking-wider pb-0.5 border-b" style={{ color, borderColor: `${color}40` }}>
+                Perfil Profesional
+              </div>
+              <div className="text-[4.5px] text-slate-600 line-clamp-2 leading-relaxed">
+                Ingeniero de Software Full Stack apasionado por construir productos digitales de clase mundial con arquitecturas escalables en la nube.
+              </div>
+            </div>
+
+            {/* Experiencia */}
+            <div className="space-y-0.5">
+              <div className="text-[5.5px] font-black uppercase tracking-wider pb-0.5 border-b" style={{ color, borderColor: `${color}40` }}>
+                Experiencia Laboral
+              </div>
+              <div className="space-y-1">
+                <div>
+                  <div className="flex justify-between items-center text-[5px]">
+                    <span className="font-bold text-slate-800">Senior Full Stack Developer</span>
+                    <span className="text-[4.5px] text-slate-400">2022 - Pres.</span>
+                  </div>
+                  <div className="text-[4.5px] text-slate-500">Tech Caribe Solutions • Santo Domingo</div>
+                  <div className="text-[4px] text-slate-600 line-clamp-1 mt-0.5">
+                    • Liderazgo técnico en microservicios y portales web bancarios.
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between items-center text-[5px]">
+                    <span className="font-bold text-slate-800">Frontend Developer</span>
+                    <span className="text-[4.5px] text-slate-400">2020 - 2022</span>
+                  </div>
+                  <div className="text-[4.5px] text-slate-500">Innova Web RD</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Educación y Habilidades */}
+            <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100">
+              <div>
+                <div className="text-[5px] font-bold uppercase text-slate-700 mb-0.5">Educación</div>
+                <div className="text-[4.5px] font-semibold text-slate-800">Ing. de Software</div>
+                <div className="text-[4px] text-slate-400">INTEC • 2016-2020</div>
+              </div>
+              <div>
+                <div className="text-[5px] font-bold uppercase text-slate-700 mb-0.5">Habilidades</div>
+                <div className="flex flex-wrap gap-0.5">
+                  <span className="bg-slate-100 text-slate-700 text-[4px] font-medium px-1 py-0.2 rounded">React</span>
+                  <span className="bg-slate-100 text-slate-700 text-[4px] font-medium px-1 py-0.2 rounded">Node.js</span>
+                  <span className="bg-slate-100 text-slate-700 text-[4px] font-medium px-1 py-0.2 rounded">TypeScript</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       );
+
     case 'elegante':
       return (
-        <div className="w-full h-full bg-white flex flex-col overflow-hidden">
-          <div className="w-full h-6 flex flex-col justify-center px-1.5 space-y-0.5" style={{ backgroundColor: color }}>
-            <div className="w-12 h-1.5 bg-white rounded-xs" />
-            <div className="w-8 h-1 bg-white/70 rounded-xs" />
-          </div>
-          <div className="flex-1 grid grid-cols-12 gap-1 p-1">
-            <div className="col-span-4 bg-slate-100 p-0.5 space-y-1 rounded-xs">
-              <div className="w-3.5 h-3.5 rounded-full bg-white mx-auto border border-slate-200" />
-              <div className="w-full h-0.5 bg-slate-300 rounded-xs" />
-              <div className="w-3/4 h-0.5 bg-slate-300 rounded-xs" />
+        <div className="w-full h-full bg-white flex flex-col select-none text-[6px] leading-tight overflow-hidden">
+          {/* Header a todo el ancho a color */}
+          <div className="p-2 text-white flex items-center justify-between shrink-0" style={{ backgroundColor: color }}>
+            <div>
+              <div className="text-[8.5px] font-black uppercase tracking-wider text-white">
+                {fName} {lName}
+              </div>
+              <div className="text-[5.5px] font-medium uppercase tracking-widest text-white/90 mt-0.5">
+                {job}
+              </div>
             </div>
-            <div className="col-span-8 space-y-1 p-0.5">
-              <div className="w-8 h-1 rounded-xs" style={{ backgroundColor: color }} />
-              <div className="w-full h-0.5 bg-slate-200" />
-              <div className="w-5/6 h-0.5 bg-slate-200" />
-              <div className="w-8 h-1 rounded-xs pt-0.5" style={{ backgroundColor: color }} />
-              <div className="w-full h-0.5 bg-slate-200" />
+            {photo ? (
+              <div className="w-6 h-6 rounded-full overflow-hidden border border-white/80 shadow-xs shrink-0">
+                <img src={photo} alt="" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-white/20 border border-white/40 shadow-xs shrink-0 flex items-center justify-center text-white font-black text-[6.5px]">
+                {initials}
+              </div>
+            )}
+          </div>
+
+          {/* Dos Columnas Equilibradas */}
+          <div className="flex-1 grid grid-cols-12 overflow-hidden">
+            {/* Barra lateral */}
+            <div className="col-span-4 bg-slate-50 p-1.5 border-r border-slate-100 space-y-1.5">
+              <div className="space-y-0.5">
+                <div className="text-[5px] font-black uppercase tracking-wider" style={{ color }}>Contacto</div>
+                <div className="text-[4px] text-slate-600 truncate">carlos@email.com</div>
+                <div className="text-[4px] text-slate-600 truncate">+1 809-555-3421</div>
+                <div className="text-[4px] text-slate-600 truncate">Santo Domingo</div>
+              </div>
+
+              <div className="space-y-0.5">
+                <div className="text-[5px] font-black uppercase tracking-wider" style={{ color }}>Habilidades</div>
+                <div className="space-y-0.5">
+                  <div>
+                    <div className="text-[4px] font-semibold text-slate-700">TypeScript</div>
+                    <div className="w-full h-0.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="w-4/5 h-full" style={{ backgroundColor: color }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[4px] font-semibold text-slate-700">React & Next.js</div>
+                    <div className="w-full h-0.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="w-5/6 h-full" style={{ backgroundColor: color }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[4px] font-semibold text-slate-700">Node.js</div>
+                    <div className="w-full h-0.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="w-3/4 h-full" style={{ backgroundColor: color }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Columna Principal */}
+            <div className="col-span-8 p-2 space-y-1.5">
+              <div className="space-y-0.5">
+                <div className="text-[5.5px] font-bold uppercase tracking-wider border-b pb-0.5 text-slate-800" style={{ borderColor: `${color}40` }}>
+                  Perfil Profesional
+                </div>
+                <p className="text-[4.5px] text-slate-600 line-clamp-2 leading-relaxed">
+                  Profesional de tecnología enfocado en calidad, liderazgo de proyectos digitales y soluciones robustas.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-[5.5px] font-bold uppercase tracking-wider border-b pb-0.5 text-slate-800" style={{ borderColor: `${color}40` }}>
+                  Experiencia Laboral
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-[4.8px]">
+                    <span className="font-bold text-slate-900">Tech Caribe Solutions</span>
+                    <span className="text-[4px] text-slate-400">2022 - Pres.</span>
+                  </div>
+                  <div className="text-[4.5px] font-semibold" style={{ color }}>Senior Full Stack Developer</div>
+                  <div className="text-[4px] text-slate-600 line-clamp-2">
+                    Liderazgo en microservicios y pasarelas de pago de retail en el Caribe.
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       );
+
     case 'circular':
       return (
-        <div className="w-full h-full bg-white flex overflow-hidden">
-          <div className="w-[42%] bg-slate-100 flex flex-col items-center">
-            <div className="w-full h-4 rounded-b-xl" style={{ backgroundColor: color }} />
-            <div className="w-4 h-4 rounded-full bg-white border border-slate-300 -mt-1.5 shadow-xs" />
-            <div className="w-4/5 space-y-1 mt-2">
-              <div className="w-full h-0.5 bg-slate-300" />
-              <div className="w-3/4 h-0.5 bg-slate-300" />
-              <div className="w-4/5 h-0.5 bg-slate-300" />
+        <div className="w-full h-full bg-white grid grid-cols-12 select-none text-[6px] leading-tight overflow-hidden">
+          {/* Columna Izquierda con arco curvado */}
+          <div className="col-span-5 bg-[#F4F6F9] border-r border-slate-200/80 flex flex-col justify-between relative">
+            <div
+              className="pt-2 pb-2.5 px-1 text-center text-white"
+              style={{
+                backgroundColor: color,
+                borderBottomLeftRadius: '50% 10px',
+                borderBottomRightRadius: '50% 10px',
+              }}
+            >
+              <div className="text-[5px] font-black uppercase tracking-[0.15em] text-white">
+                Curriculum
+              </div>
+            </div>
+
+            <div className="p-1.5 space-y-2 flex-1">
+              {photo ? (
+                <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-white shadow-sm mx-auto -mt-2 bg-white">
+                  <img src={photo} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div
+                  className="w-7 h-7 rounded-full border-2 border-white shadow-sm mx-auto -mt-2 flex items-center justify-center text-white font-black text-[7px]"
+                  style={{ backgroundColor: color }}
+                >
+                  {initials}
+                </div>
+              )}
+
+              <div className="space-y-0.5 pt-0.5">
+                <div className="font-bold text-[5px] uppercase tracking-wider pb-0.5 border-b" style={{ color, borderColor: `${color}30` }}>
+                  Datos Personales
+                </div>
+                <div className="text-[4px] text-slate-600 truncate">carlos@email.com</div>
+                <div className="text-[4px] text-slate-600 truncate">+1 809-555-3421</div>
+                <div className="text-[4px] text-slate-600 truncate">Santo Domingo, RD</div>
+              </div>
+
+              <div className="space-y-0.5">
+                <div className="font-bold text-[5px] uppercase tracking-wider pb-0.5 border-b" style={{ color, borderColor: `${color}30` }}>
+                  Habilidades
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-[4px] text-slate-700">
+                    <span>Full Stack</span>
+                    <span>95%</span>
+                  </div>
+                  <div className="w-full h-0.5 bg-slate-200 rounded-full">
+                    <div className="w-[95%] h-full rounded-full" style={{ backgroundColor: color }} />
+                  </div>
+                  <div className="flex justify-between text-[4px] text-slate-700">
+                    <span>Cloud & DevOps</span>
+                    <span>85%</span>
+                  </div>
+                  <div className="w-full h-0.5 bg-slate-200 rounded-full">
+                    <div className="w-[85%] h-full rounded-full" style={{ backgroundColor: color }} />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="w-[58%] p-1.5 space-y-1">
-            <div className="w-12 h-1.5 bg-slate-800 rounded-xs" />
-            <div className="w-8 h-1 bg-slate-400 rounded-xs" />
-            <div className="w-full h-0.5 bg-slate-200 mt-1" />
-            <div className="w-8 h-1 rounded-xs mt-1" style={{ backgroundColor: color }} />
-            <div className="w-full h-0.5 bg-slate-200" />
-            <div className="w-4/5 h-0.5 bg-slate-200" />
+
+          {/* Columna Derecha */}
+          <div className="col-span-7 p-2 space-y-1.5">
+            <div className="border-b border-slate-100 pb-1">
+              <div className="text-[8.5px] font-black text-slate-900 tracking-tight leading-none uppercase">
+                {fName} {lName}
+              </div>
+              <div className="text-[5.5px] font-bold uppercase tracking-wider mt-0.5" style={{ color }}>
+                {job}
+              </div>
+            </div>
+
+            <div className="space-y-0.5">
+              <div className="text-[5.5px] font-black uppercase tracking-wider pb-0.5 border-b" style={{ color, borderColor: `${color}30` }}>
+                Perfil
+              </div>
+              <div className="text-[4.5px] text-slate-600 line-clamp-2 leading-relaxed">
+                Especialista enfocado en arquitecturas cloud y liderazgo de equipos de ingeniería.
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-[5.5px] font-black uppercase tracking-wider pb-0.5 border-b" style={{ color, borderColor: `${color}30` }}>
+                Experiencia
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex justify-between text-[4.8px]">
+                  <span className="font-bold text-slate-800">Senior Full Stack Developer</span>
+                  <span className="text-[4px] text-slate-400">2022 - Pres.</span>
+                </div>
+                <div className="text-[4.2px] text-slate-500">Tech Caribe Solutions</div>
+                <div className="text-[4px] text-slate-600 line-clamp-2">
+                  Diseño de arquitecturas escalables y pasarelas de pago locales.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       );
+
     case 'moderna':
       return (
-        <div className="w-full h-full bg-white flex overflow-hidden">
-          <div className="w-[42%] p-1 space-y-1 text-white flex flex-col items-center" style={{ backgroundColor: color }}>
-            <div className="w-4 h-4 rounded-xs bg-white/40 border border-white/60 mx-auto" />
-            <div className="w-full h-1 bg-white rounded-xs" />
-            <div className="w-3/4 h-0.5 bg-white/70" />
-            <div className="w-full h-0.5 bg-white/40 mt-1" />
-            <div className="w-4/5 h-0.5 bg-white/40" />
+        <div className="w-full h-full bg-white grid grid-cols-12 select-none text-[6px] leading-tight overflow-hidden">
+          {/* Barra lateral sólida a color */}
+          <div className="col-span-5 p-2 text-white space-y-1.5 flex flex-col justify-between" style={{ backgroundColor: color }}>
+            <div className="space-y-1">
+              {photo ? (
+                <div className="w-7 h-7 rounded-xl overflow-hidden border border-white/60 shadow-xs mx-auto">
+                  <img src={photo} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-7 h-7 rounded-xl bg-white/20 border border-white/40 shadow-xs mx-auto flex items-center justify-center text-white font-black text-[7px]">
+                  {initials}
+                </div>
+              )}
+              <div className="text-center">
+                <div className="text-[7.5px] font-black text-white leading-none uppercase">{fName} {lName}</div>
+                <div className="text-[4.8px] font-medium text-white/80 mt-0.5">{job}</div>
+              </div>
+            </div>
+
+            <div className="space-y-0.5 pt-1 border-t border-white/20">
+              <div className="font-bold uppercase tracking-widest text-[4.5px] text-white/60">Contacto</div>
+              <div className="text-[4px] text-white/90 truncate">carlos@email.com</div>
+              <div className="text-[4px] text-white/90 truncate">+1 809-555-3421</div>
+              <div className="text-[4px] text-white/90 truncate">Santo Domingo, RD</div>
+            </div>
+
+            <div className="space-y-0.5 pt-1 border-t border-white/20">
+              <div className="font-bold uppercase tracking-widest text-[4.5px] text-white/60">Habilidades</div>
+              <div className="flex flex-wrap gap-0.5">
+                <span className="bg-white/20 text-white text-[3.8px] font-medium px-1 py-0.2 rounded">JavaScript</span>
+                <span className="bg-white/20 text-white text-[3.8px] font-medium px-1 py-0.2 rounded">React</span>
+                <span className="bg-white/20 text-white text-[3.8px] font-medium px-1 py-0.2 rounded">Node.js</span>
+              </div>
+            </div>
           </div>
-          <div className="w-[58%] p-1.5 space-y-1">
-            <div className="w-10 h-1.5 bg-slate-800 rounded-xs" />
-            <div className="w-full h-0.5 bg-slate-200" />
-            <div className="w-8 h-1 rounded-xs mt-1" style={{ backgroundColor: color }} />
-            <div className="w-full h-0.5 bg-slate-200" />
-            <div className="w-5/6 h-0.5 bg-slate-200" />
-            <div className="w-8 h-1 rounded-xs mt-1" style={{ backgroundColor: color }} />
-            <div className="w-full h-0.5 bg-slate-200" />
+
+          {/* Columna Derecha Blanca */}
+          <div className="col-span-7 p-2 space-y-1.5">
+            <div className="space-y-0.5">
+              <div className="text-[5.5px] font-black uppercase tracking-wider text-slate-900 border-b border-slate-200 pb-0.5">
+                Perfil Profesional
+              </div>
+              <div className="text-[4.5px] text-slate-600 line-clamp-2 leading-relaxed">
+                Desarrollador con más de 6 años de experiencia creando productos web ágiles y de alta disponibilidad.
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-[5.5px] font-black uppercase tracking-wider text-slate-900 border-b border-slate-200 pb-0.5">
+                Experiencia Laboral
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex justify-between text-[4.8px]">
+                  <span className="font-bold text-slate-900">Tech Caribe Solutions</span>
+                  <span className="text-[4px] text-slate-400">2022 - Pres.</span>
+                </div>
+                <div className="text-[4.5px] font-semibold" style={{ color }}>Senior Full Stack Developer</div>
+                <div className="text-[4px] text-slate-600 line-clamp-2">
+                  Liderazgo técnico en microservicios e interfaces de usuario para clientes bancarios.
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-0.5 pt-0.5 border-t border-slate-100">
+              <div className="text-[5.5px] font-black uppercase tracking-wider text-slate-900 pb-0.5">
+                Educación
+              </div>
+              <div className="text-[4.5px] font-bold text-slate-800">Ingeniería de Software</div>
+              <div className="text-[4px] text-slate-400">INTEC • Santo Domingo</div>
+            </div>
           </div>
         </div>
       );
+
     case 'deluxe':
       return (
-        <div className="w-full h-full bg-white p-1.5 flex flex-col space-y-1">
-          <div className="flex justify-between items-center pb-1 border-b border-slate-200">
-            <div className="flex items-center gap-1">
-              <div className="w-3.5 h-3.5 rounded-xs flex items-center justify-center text-[6px] font-serif font-black text-white" style={{ backgroundColor: color }}>
+        <div className="w-full h-full bg-white p-2 flex flex-col justify-between select-none text-[6px] leading-tight overflow-hidden">
+          {/* Header con Monograma CV */}
+          <div className="flex items-center justify-between pb-1 border-b-2 border-slate-900">
+            <div className="flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded-xs flex items-center justify-center font-serif font-black text-white text-[7px] shadow-xs shrink-0" style={{ backgroundColor: color }}>
                 CV
               </div>
-              <div className="w-10 h-1.5 bg-slate-800 rounded-xs" />
+              <div>
+                <div className="text-[8px] font-serif font-bold text-slate-900 tracking-wide uppercase">
+                  {fName} {lName}
+                </div>
+                <div className="text-[5px] font-serif uppercase tracking-widest text-slate-500">
+                  {job}
+                </div>
+              </div>
             </div>
-            <div className="w-4 h-4 border border-slate-300 p-0.5 rounded-xs">
-              <div className="w-full h-full bg-slate-200" />
-            </div>
+            {photo ? (
+              <div className="w-6 h-6 border-2 border-slate-300 p-0.5 rounded-xs shrink-0">
+                <img src={photo} alt="" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 border border-slate-300 p-0.5 rounded-xs shrink-0 flex items-center justify-center text-slate-700 font-serif font-bold text-[6px]">
+                {initials}
+              </div>
+            )}
           </div>
-          <div className="flex-1 grid grid-cols-12 gap-1 pt-0.5">
-            <div className="col-span-5 space-y-1 border-r border-slate-100 pr-1">
-              <div className="w-6 h-1 rounded-xs" style={{ backgroundColor: color }} />
-              <div className="w-full h-0.5 bg-slate-200" />
-              <div className="w-3/4 h-0.5 bg-slate-200" />
+
+          <div className="flex-1 grid grid-cols-12 gap-1.5 pt-1.5">
+            {/* Columna Izquierda */}
+            <div className="col-span-5 space-y-1.5 border-r border-slate-100 pr-1">
+              <div className="space-y-0.5">
+                <div className="text-[5px] font-serif font-bold uppercase tracking-wider text-slate-900 border-b pb-0.5" style={{ color }}>
+                  Contacto
+                </div>
+                <div className="text-[4px] text-slate-600">carlos@email.com</div>
+                <div className="text-[4px] text-slate-600">+1 809-555-3421</div>
+                <div className="text-[4px] text-slate-600">Santo Domingo</div>
+              </div>
+
+              <div className="space-y-0.5">
+                <div className="text-[5px] font-serif font-bold uppercase tracking-wider text-slate-900 border-b pb-0.5" style={{ color }}>
+                  Educación
+                </div>
+                <div className="text-[4.5px] font-serif font-semibold text-slate-800">Ing. de Software</div>
+                <div className="text-[3.8px] text-slate-400">INTEC • 2016-2020</div>
+              </div>
             </div>
-            <div className="col-span-7 space-y-1 pl-0.5">
-              <div className="w-8 h-1 rounded-xs" style={{ backgroundColor: color }} />
-              <div className="w-full h-0.5 bg-slate-200" />
-              <div className="w-4/5 h-0.5 bg-slate-200" />
+
+            {/* Columna Derecha */}
+            <div className="col-span-7 space-y-1.5 pl-0.5">
+              <div className="space-y-0.5">
+                <div className="text-[5px] font-serif font-bold uppercase tracking-wider text-slate-900 border-b pb-0.5" style={{ color }}>
+                  Trayectoria
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-[4.5px]">
+                    <span className="font-serif font-bold text-slate-900">Tech Caribe</span>
+                    <span className="text-[3.8px] text-slate-400">2022 - Pres.</span>
+                  </div>
+                  <div className="text-[4px] text-slate-600 line-clamp-2">
+                    Liderazgo de microservicios y pasarelas de pago bancarias en República Dominicana.
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       );
+
     case 'clasica':
       return (
-        <div className="w-full h-full bg-white p-1.5 flex flex-col space-y-1 text-center">
-          <div className="w-12 h-1 bg-slate-800 mx-auto rounded-xs" />
-          <div className="w-16 h-1.5 bg-black mx-auto rounded-xs" />
-          <div className="w-full h-1.5 bg-slate-900 rounded-xs mt-1 flex items-center px-1">
-            <div className="w-6 h-0.5 bg-white" />
+        <div className="w-full h-full bg-white p-2 flex flex-col justify-between select-none text-[6px] leading-tight text-center overflow-hidden">
+          {/* Cabecera Centrada ATS */}
+          <div className="space-y-0.5 pb-1 border-b border-slate-200">
+            <div className="text-[9px] font-black uppercase tracking-wider text-slate-900">
+              {fName} {lName}
+            </div>
+            <div className="text-[5px] font-semibold text-slate-600">
+              {job} • Santo Domingo, RD
+            </div>
+            <div className="text-[4px] text-slate-500">
+              carlos@email.com | +1 809-555-3421 | linkedin.com/in/carlos
+            </div>
           </div>
-          <div className="w-full h-0.5 bg-slate-200" />
-          <div className="w-4/5 h-0.5 bg-slate-200 mx-auto" />
-          <div className="w-full h-1.5 bg-slate-900 rounded-xs mt-1 flex items-center px-1">
-            <div className="w-8 h-0.5 bg-white" />
+
+          {/* Banda Sección 1 */}
+          <div className="space-y-1 text-left pt-1">
+            <div className="w-full bg-slate-900 text-white font-bold text-[5px] uppercase tracking-wider px-1 py-0.5 rounded-xs flex items-center">
+              EXPERIENCIA LABORAL
+            </div>
+            <div className="space-y-0.5 px-0.5">
+              <div className="flex justify-between text-[4.8px]">
+                <span className="font-bold text-slate-900">Senior Full Stack Developer</span>
+                <span className="text-[4px] text-slate-500 font-semibold">2022 - Presente</span>
+              </div>
+              <div className="text-[4.2px] text-slate-600 font-medium">Tech Caribe Solutions — Santo Domingo</div>
+              <div className="text-[4px] text-slate-600 space-y-0.2">
+                <div>• Desarrollo y mantenimiento de arquitecturas cloud en GCP y AWS.</div>
+                <div>• Optimización del 40% en tiempos de respuesta de transacciones.</div>
+              </div>
+            </div>
           </div>
-          <div className="w-full h-0.5 bg-slate-200" />
+
+          {/* Banda Sección 2 */}
+          <div className="space-y-0.5 text-left pt-0.5">
+            <div className="w-full bg-slate-900 text-white font-bold text-[5px] uppercase tracking-wider px-1 py-0.5 rounded-xs flex items-center">
+              EDUCACIÓN & CERTIFICACIONES
+            </div>
+            <div className="px-0.5 flex justify-between text-[4.5px]">
+              <div>
+                <span className="font-bold text-slate-900">Ingeniería de Software</span>
+                <span className="text-[4px] text-slate-500"> — INTEC</span>
+              </div>
+              <span className="text-[4px] text-slate-400">2016 - 2020</span>
+            </div>
+          </div>
+
+          {/* Banda Sección 3 */}
+          <div className="space-y-0.5 text-left pt-0.5">
+            <div className="w-full bg-slate-900 text-white font-bold text-[5px] uppercase tracking-wider px-1 py-0.5 rounded-xs flex items-center">
+              HABILIDADES PRINCIPALES
+            </div>
+            <div className="text-[4px] text-slate-700 px-0.5">
+              JavaScript, TypeScript, React, Next.js, Node.js, Express, MySQL, Docker, AWS, Git.
+            </div>
+          </div>
         </div>
       );
+
     case 'informal':
       return (
-        <div className="w-full h-full bg-white flex overflow-hidden">
-          <div className="w-[42%] p-1 space-y-1.5 flex flex-col items-center" style={{ backgroundColor: `${color}18` }}>
-            <div className="w-4 h-4 rounded-full bg-white border border-slate-200" />
-            <div className="w-4/5 h-0.5 bg-slate-400" />
-            <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: `${color}40` }} />
-            <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: `${color}40` }} />
+        <div className="w-full h-full bg-white grid grid-cols-12 select-none text-[6px] leading-tight overflow-hidden">
+          {/* Barra pastel */}
+          <div className="col-span-5 p-1.5 space-y-1.5 flex flex-col justify-between" style={{ backgroundColor: `${color}15` }}>
+            <div className="space-y-1 text-center">
+              {photo ? (
+                <div className="w-7 h-7 rounded-full overflow-hidden border border-white shadow-xs mx-auto">
+                  <img src={photo} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-7 h-7 rounded-full border border-white shadow-xs mx-auto flex items-center justify-center text-white font-black text-[7px]" style={{ backgroundColor: color }}>
+                  {initials}
+                </div>
+              )}
+              <div className="text-[7.5px] font-black text-slate-900 leading-none">{fName}</div>
+              <div className="text-[4.5px] text-slate-600">{job}</div>
+            </div>
+
+            <div className="space-y-0.5">
+              <div className="text-[4.8px] font-bold text-slate-800">Contacto</div>
+              <div className="text-[4px] text-slate-600 truncate">carlos@email.com</div>
+              <div className="text-[4px] text-slate-600 truncate">+1 809-555-3421</div>
+            </div>
+
+            <div className="space-y-0.5">
+              <div className="text-[4.8px] font-bold text-slate-800">Habilidades</div>
+              <div className="flex flex-wrap gap-0.5">
+                <span className="text-[3.8px] font-bold px-1 py-0.2 rounded-full" style={{ backgroundColor: `${color}30`, color }}>React</span>
+                <span className="text-[3.8px] font-bold px-1 py-0.2 rounded-full" style={{ backgroundColor: `${color}30`, color }}>Node</span>
+                <span className="text-[3.8px] font-bold px-1 py-0.2 rounded-full" style={{ backgroundColor: `${color}30`, color }}>AWS</span>
+              </div>
+            </div>
           </div>
-          <div className="w-[58%] p-1.5 space-y-1">
-            <div className="w-12 h-1.5 bg-slate-800 rounded-xs" />
-            <div className="w-8 h-1 rounded-full text-white" style={{ backgroundColor: color }} />
-            <div className="w-full h-0.5 bg-slate-200 mt-1" />
-            <div className="w-full h-0.5 bg-slate-200" />
+
+          <div className="col-span-7 p-2 space-y-1.5">
+            <div className="space-y-0.5">
+              <div className="text-[5.5px] font-bold flex items-center gap-1" style={{ color }}>
+                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: color }} /> Perfil
+              </div>
+              <div className="text-[4.5px] text-slate-600 line-clamp-2">
+                Ingeniero creativo enfocado en UX moderna y desarrollo full stack ágil.
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-[5.5px] font-bold flex items-center gap-1" style={{ color }}>
+                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: color }} /> Experiencia
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex justify-between text-[4.8px]">
+                  <span className="font-bold text-slate-800">Tech Caribe</span>
+                  <span className="text-[4px] text-slate-400">2022-Pres.</span>
+                </div>
+                <div className="text-[4px] text-slate-600 line-clamp-2">
+                  Desarrollo de microservicios e interfaces de usuario para clientes bancarios.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       );
+
     case 'horizontal':
       return (
-        <div className="w-full h-full bg-white flex flex-col overflow-hidden">
-          <div className="w-full h-6 px-1.5 flex items-center" style={{ backgroundColor: color }}>
-            <div className="w-12 h-1.5 bg-white rounded-xs" />
+        <div className="w-full h-full bg-white flex flex-col select-none text-[6px] leading-tight overflow-hidden">
+          {/* Banda ancha superior */}
+          <div className="h-6 px-2 flex items-center justify-between text-white shrink-0" style={{ backgroundColor: color }}>
+            <div className="text-[8px] font-black uppercase tracking-wider text-white">
+              {fName} {lName}
+            </div>
+            <div className="text-[5px] text-white/80">{job}</div>
           </div>
-          <div className="px-1.5 -mt-2 flex items-center gap-1">
-            <div className="w-4 h-4 rounded-full bg-white border-2 border-white shadow-xs" />
-            <div className="w-8 h-1 bg-slate-600 rounded-xs mt-2" />
+
+          {/* Franja de contacto con foto flotante */}
+          <div className="px-2 -mt-2.5 flex items-center justify-between">
+            {photo ? (
+              <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-white shadow-xs shrink-0 bg-white">
+                <img src={photo} alt="" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-white border-2 border-white shadow-xs shrink-0 flex items-center justify-center font-bold text-[6px]" style={{ color }}>
+                {initials}
+              </div>
+            )}
+            <div className="text-[4.2px] text-slate-500 flex items-center gap-1.5 pt-2">
+              <span>carlos@email.com</span>
+              <span>•</span>
+              <span>+1 809-555-3421</span>
+              <span>•</span>
+              <span>Santo Domingo</span>
+            </div>
           </div>
-          <div className="flex-1 grid grid-cols-2 gap-1 p-1.5">
+
+          {/* Doble columna */}
+          <div className="p-2 flex-1 grid grid-cols-2 gap-1.5 pt-2">
             <div className="space-y-1">
-              <div className="w-8 h-1 border-l-2 pl-0.5" style={{ borderColor: color }} />
-              <div className="w-full h-0.5 bg-slate-200" />
+              <div className="text-[5px] font-bold uppercase pl-1 border-l-2 text-slate-800" style={{ borderColor: color }}>
+                Experiencia
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-[4.5px] font-bold text-slate-800">Senior Developer</div>
+                <div className="text-[3.8px] text-slate-500">Tech Caribe • 2022 - Pres.</div>
+                <div className="text-[4px] text-slate-600 line-clamp-2">
+                  Liderazgo de proyectos clave en sector bancario y retail.
+                </div>
+              </div>
             </div>
             <div className="space-y-1">
-              <div className="w-8 h-1 border-l-2 pl-0.5" style={{ borderColor: color }} />
-              <div className="w-full h-0.5 bg-slate-200" />
+              <div className="text-[5px] font-bold uppercase pl-1 border-l-2 text-slate-800" style={{ borderColor: color }}>
+                Habilidades
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-[4.2px] font-semibold text-slate-700">TypeScript / React</div>
+                <div className="text-[4.2px] font-semibold text-slate-700">Node.js / Express</div>
+                <div className="text-[4.2px] font-semibold text-slate-700">PostgreSQL / Cloud</div>
+              </div>
             </div>
           </div>
         </div>
       );
+
     case 'vertical':
       return (
-        <div className="w-full h-full bg-white flex overflow-hidden">
+        <div className="w-full h-full bg-white flex select-none text-[6px] leading-tight overflow-hidden">
+          {/* Franja vertical de acento */}
           <div className="w-1.5 h-full shrink-0" style={{ backgroundColor: color }} />
-          <div className="flex-1 p-1.5 space-y-1">
-            <div className="flex items-center gap-1 pb-1 border-b border-slate-200">
-              <div className="w-3.5 h-3.5 rounded-full bg-slate-200 shrink-0" />
-              <div className="space-y-0.5">
-                <div className="w-10 h-1 bg-slate-800 rounded-xs" />
-                <div className="w-6 h-0.5 bg-slate-400" />
+          <div className="p-2 flex-1 flex flex-col justify-between space-y-1.5">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+              <div>
+                <div className="text-[8px] font-black text-slate-900 uppercase">{fName} {lName}</div>
+                <div className="text-[5px] font-semibold text-slate-500">{job}</div>
               </div>
+              {photo ? (
+                <div className="w-6 h-6 rounded-full overflow-hidden border shrink-0">
+                  <img src={photo} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-white font-bold text-[6px]" style={{ backgroundColor: color }}>
+                  {initials}
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-1 pt-0.5">
-              <div className="space-y-1 border-r border-slate-100 pr-0.5">
-                <div className="w-full h-0.5 bg-slate-200" />
-                <div className="w-3/4 h-0.5 bg-slate-200" />
+
+            <div className="grid grid-cols-2 gap-1.5 flex-1">
+              <div className="space-y-1 border-r border-slate-100 pr-1">
+                <div className="text-[5px] font-bold uppercase text-slate-800">Trayectoria</div>
+                <div className="text-[4.5px] font-semibold text-slate-900">Tech Caribe Solutions</div>
+                <div className="text-[4px] text-slate-600 line-clamp-2">
+                  Desarrollo de microservicios escalables.
+                </div>
               </div>
               <div className="space-y-1 pl-0.5">
-                <div className="w-full h-0.5 bg-slate-200" />
-                <div className="w-4/5 h-0.5 bg-slate-200" />
+                <div className="text-[5px] font-bold uppercase text-slate-800">Contacto & Hab.</div>
+                <div className="text-[4px] text-slate-600">carlos@email.com</div>
+                <div className="text-[4px] text-slate-600">TypeScript • React • Node</div>
               </div>
             </div>
           </div>
         </div>
       );
+
     case 'metro':
       return (
-        <div className="w-full h-full bg-white p-1.5 space-y-1">
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-xs" style={{ backgroundColor: color }} />
-            <div className="w-12 h-1.5 bg-black font-black" />
+        <div className="w-full h-full bg-white p-2 flex flex-col justify-between select-none text-[6px] leading-tight overflow-hidden">
+          <div className="flex items-center justify-between pb-1">
+            <div className="flex items-center gap-1">
+              <div className="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: color }} />
+              <div className="text-[8.5px] font-black text-black tracking-tighter uppercase">{fName} {lName}</div>
+            </div>
+            <div className="text-[5px] font-bold uppercase text-slate-500">{job}</div>
           </div>
-          <div className="w-full h-2 px-1 text-white flex items-center rounded-xs" style={{ backgroundColor: color }}>
-            <div className="w-6 h-0.5 bg-white" />
+
+          <div className="space-y-1">
+            <div className="px-1 py-0.5 text-white font-bold text-[5px] uppercase rounded-xs" style={{ backgroundColor: color }}>
+              Experiencia Laboral
+            </div>
+            <div className="px-0.5 space-y-0.5">
+              <div className="flex justify-between text-[4.8px]">
+                <span className="font-bold text-slate-900">Tech Caribe Solutions</span>
+                <span className="text-[4px] text-slate-400">2022 - Pres.</span>
+              </div>
+              <div className="text-[4px] text-slate-600 line-clamp-1">
+                Liderazgo de microservicios y arquitectura cloud.
+              </div>
+            </div>
           </div>
-          <div className="w-full h-0.5 bg-slate-200" />
-          <div className="w-full h-2 px-1 text-white flex items-center rounded-xs mt-1" style={{ backgroundColor: color }}>
-            <div className="w-8 h-0.5 bg-white" />
+
+          <div className="space-y-1 pt-0.5">
+            <div className="px-1 py-0.5 text-white font-bold text-[5px] uppercase rounded-xs" style={{ backgroundColor: color }}>
+              Habilidades Clave
+            </div>
+            <div className="grid grid-cols-3 gap-0.5 px-0.5">
+              <span className="bg-slate-100 text-slate-800 text-[4px] font-semibold text-center p-0.5 rounded-xs">Frontend</span>
+              <span className="bg-slate-100 text-slate-800 text-[4px] font-semibold text-center p-0.5 rounded-xs">Backend</span>
+              <span className="bg-slate-100 text-slate-800 text-[4px] font-semibold text-center p-0.5 rounded-xs">Cloud</span>
+            </div>
           </div>
-          <div className="w-full h-0.5 bg-slate-200" />
         </div>
       );
+
     case 'sencilla':
     default:
       return (
-        <div className="w-full h-full bg-white p-1.5 space-y-1.5 text-center">
-          <div className="space-y-0.5">
-            <div className="w-14 h-1.5 bg-slate-900 mx-auto rounded-xs" />
-            <div className="w-8 h-0.5 bg-slate-400 mx-auto" />
+        <div className="w-full h-full bg-white p-2.5 flex flex-col justify-between select-none text-[6px] leading-tight text-center overflow-hidden">
+          <div className="space-y-0.5 pb-1 border-b border-slate-100">
+            <div className="text-[9px] font-light tracking-wide text-slate-900 uppercase">
+              {fName} {lName}
+            </div>
+            <div className="text-[5px] font-normal text-slate-500">
+              {job} • Santo Domingo, RD
+            </div>
+            <div className="text-[4px] text-slate-400">
+              carlos@email.com | +1 809-555-3421
+            </div>
           </div>
-          <div className="w-full h-0.5 bg-slate-100" />
-          <div className="space-y-1 text-left pt-0.5">
-            <div className="w-8 h-0.5 bg-slate-400" />
-            <div className="w-full h-0.5 bg-slate-200" />
-            <div className="w-5/6 h-0.5 bg-slate-200" />
-            <div className="w-8 h-0.5 bg-slate-400 mt-1" />
-            <div className="w-full h-0.5 bg-slate-200" />
+
+          <div className="space-y-1 text-left pt-1">
+            <div className="text-[5px] font-semibold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-0.5">
+              Experiencia Laboral
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex justify-between text-[4.8px]">
+                <span className="font-semibold text-slate-900">Tech Caribe Solutions</span>
+                <span className="text-[4px] text-slate-400">2022 - Presente</span>
+              </div>
+              <div className="text-[4.2px] text-slate-500">Senior Developer</div>
+              <div className="text-[4px] text-slate-600 line-clamp-2">
+                Desarrollo de microservicios y soluciones escalables en la nube.
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-0.5 text-left pt-0.5">
+            <div className="text-[5px] font-semibold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-0.5">
+              Educación
+            </div>
+            <div className="text-[4.5px] text-slate-700">INTEC — Ingeniería de Software</div>
           </div>
         </div>
       );
   }
+};
+
+const renderMiniTemplateThumbnail = (id: TemplateId, color: string) => {
+  return renderTemplateRealSheet(id, color);
 };
 
 export default function CVBuilderPage() {
@@ -453,7 +970,16 @@ export default function CVBuilderPage() {
   const [fontSizeScale, setFontSizeScale] = useState<'S' | 'M' | 'L'>('M');
   const [activeSpacing, setActiveSpacing] = useState<'compact' | 'normal' | 'relaxed'>('normal');
   const [cvTitle, setCvTitle] = useState('CV Profesional');
+  const [currentResumeId, setCurrentResumeId] = useState<string | null>(null);
+  const [allResumes, setAllResumes] = useState<any[]>([]);
+  const [showCvDropdown, setShowCvDropdown] = useState(false);
+  const [newCvModalOpen, setNewCvModalOpen] = useState(false);
+  const [newCvTitle, setNewCvTitle] = useState('');
+  const [isSwitchingCv, setIsSwitchingCv] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
+
+  const isCurrentPrimary = allResumes.find((r) => r.id === currentResumeId)?.isDefault || false;
 
   // Normalización de plantilla (soporta nombres CVwizard y alias de compatibilidad)
   const normalizedTemplate: TemplateId =
@@ -647,6 +1173,22 @@ export default function CVBuilderPage() {
     { name: 'Roboto', value: 'Roboto, sans-serif' },
   ];
 
+  // Función para poblar el constructor con los datos de un CV
+  const loadResumeData = (res: any) => {
+    if (!res) return;
+    setCurrentResumeId(res.id);
+    if (res.title) setCvTitle(res.title);
+    if (res.summary) setSummary(res.summary);
+    if (res.atsScore) setAtsScore(res.atsScore);
+    if (res.templateName && TEMPLATES.some((t) => t.id === res.templateName)) {
+      setActiveTemplate(res.templateName as TemplateId);
+    }
+    if (res.experiences) setExperiences(res.experiences);
+    if (res.education) setEducation(res.education);
+    if (res.skills) setSkills(res.skills);
+    if (res.languages) setLanguages(res.languages);
+  };
+
   // Cargar CV al iniciar
   useEffect(() => {
     if (!isLoading && !user) {
@@ -655,7 +1197,13 @@ export default function CVBuilderPage() {
     }
 
     if (token) {
-      fetch('http://localhost:5000/api/resumes/my', {
+      const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const paramResumeId = urlParams?.get('resumeId');
+      const fetchUrl = paramResumeId
+        ? `http://localhost:5000/api/resumes/my?resumeId=${paramResumeId}`
+        : 'http://localhost:5000/api/resumes/my';
+
+      fetch(fetchUrl, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((r) => {
@@ -664,17 +1212,10 @@ export default function CVBuilderPage() {
         })
         .then((data) => {
           if (data && data.resume) {
-            const res = data.resume;
-            if (res.title) setCvTitle(res.title);
-            if (res.summary) setSummary(res.summary);
-            if (res.atsScore) setAtsScore(res.atsScore);
-            if (res.templateName && TEMPLATES.some((t) => t.id === res.templateName)) {
-              setActiveTemplate(res.templateName as TemplateId);
-            }
-            if (res.experiences && res.experiences.length > 0) setExperiences(res.experiences);
-            if (res.education && res.education.length > 0) setEducation(res.education);
-            if (res.skills && res.skills.length > 0) setSkills(res.skills);
-            if (res.languages && res.languages.length > 0) setLanguages(res.languages);
+            loadResumeData(data.resume);
+          }
+          if (data && Array.isArray(data.allResumes)) {
+            setAllResumes(data.allResumes);
           }
           if (data && data.profile) {
             const p = data.profile;
@@ -696,6 +1237,88 @@ export default function CVBuilderPage() {
         });
     }
   }, [user, token, isLoading]);
+
+  // Cambiar de CV dentro del creador
+  const handleSelectResume = async (targetId: string) => {
+    if (targetId === currentResumeId || !token) return;
+    setIsSwitchingCv(true);
+    setShowCvDropdown(false);
+    try {
+      const res = await fetch(`http://localhost:5000/api/resumes/my?resumeId=${targetId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data?.resume) {
+        loadResumeData(data.resume);
+        if (Array.isArray(data.allResumes)) {
+          setAllResumes(data.allResumes);
+        }
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('resumeId', targetId);
+          window.history.pushState({}, '', url.toString());
+        }
+      }
+    } catch (e) {
+      console.error('Error al cambiar de CV:', e);
+    } finally {
+      setIsSwitchingCv(false);
+    }
+  };
+
+  // Establecer el CV actual como principal desde el creador
+  const handleSetCurrentAsPrimary = async () => {
+    if (!token || !currentResumeId) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/resumes/${currentResumeId}/set-primary`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        confetti({ particleCount: 60, spread: 60, origin: { y: 0.8 } });
+        setAllResumes((prev) =>
+          prev.map((r) => ({
+            ...r,
+            isDefault: r.id === currentResumeId,
+          }))
+        );
+      }
+    } catch (e) {
+      console.error('Error al marcar principal:', e);
+    }
+  };
+
+  // Crear una nueva versión desde el creador
+  const handleCreateNewVersionFromBuilder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !newCvTitle.trim()) return;
+    try {
+      const res = await fetch('http://localhost:5000/api/resumes/new', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: newCvTitle.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.resume) {
+        setNewCvModalOpen(false);
+        setNewCvTitle('');
+        setAllResumes((prev) => [data.resume, ...prev]);
+        loadResumeData(data.resume);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('resumeId', data.resume.id);
+          window.history.pushState({}, '', url.toString());
+        }
+        confetti({ particleCount: 70, spread: 70, origin: { y: 0.8 } });
+      }
+    } catch (e) {
+      console.error('Error creando nueva versión:', e);
+    }
+  };
 
   // Manejador de subida de foto
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -877,6 +1500,7 @@ export default function CVBuilderPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          resumeId: currentResumeId,
           title: cvTitle,
           summary,
           templateName: activeTemplate,
@@ -910,12 +1534,47 @@ export default function CVBuilderPage() {
     }
   };
 
-  // Descargar / Imprimir CV en PDF
-  const handleDownloadPDF = () => {
-    const originalTitle = document.title;
-    document.title = `${personalData.firstName}_${personalData.lastName}_CV`;
-    window.print();
-    document.title = originalTitle;
+  // Descargar CV en PDF directamente (sin abrir diálogo de impresión Ctrl+P)
+  const handleDownloadPDF = async () => {
+    const el = document.getElementById('cv-document-canvas');
+    if (!el) return;
+    setDownloadingPDF(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      const fileName = `${personalData.firstName || 'Curriculum'}_${personalData.lastName || 'Vitae'}_QuisqueyaTalent.pdf`;
+      pdf.save(fileName);
+
+      confetti({
+        particleCount: 75,
+        spread: 70,
+        origin: { y: 0.85 },
+      });
+    } catch (e) {
+      console.error('Error generando PDF:', e);
+      alert('Ocurrió un error al generar el PDF. Por favor intenta de nuevo.');
+    } finally {
+      setDownloadingPDF(false);
+    }
   };
 
   // Agregar habilidad sugerida con un clic
@@ -1233,40 +1892,140 @@ export default function CVBuilderPage() {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-['Inter'] selection:bg-blue-100">
       {/* ========================================================================= */}
-      {/* 1. BARRA SUPERIOR OSCURA (IDÉNTICA A CVWIZARD)                             */}
       {/* ========================================================================= */}
-      <header className="bg-[#12161F] text-white h-14 px-4 sm:px-6 flex items-center justify-between border-b border-slate-800 shrink-0 z-30">
-        {/* Lado Izquierdo: Volver & Título */}
-        <div className="flex items-center gap-3">
+      {/* 1. BARRA SUPERIOR EJECUTIVA CORPORATIVA (PORTAL DE EMPLEO)                 */}
+      {/* ========================================================================= */}
+      <header className="bg-white text-slate-800 h-14 px-3 sm:px-6 flex items-center justify-between border-b border-slate-200 shrink-0 z-30 shadow-xs">
+        {/* Lado Izquierdo: Volver & Selector de Versiones de CV */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/dashboard/candidato"
-            className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-full transition border border-slate-700/60"
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 sm:px-3 py-1.5 rounded-xl transition border border-slate-200 shrink-0"
+            title="Volver a Mi Panel de Candidato"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Curriculum vitae</span>
+            <span className="hidden md:inline">Panel</span>
           </Link>
+
+          {/* Selector Desplegable de Versiones de Currículum */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowCvDropdown(!showCvDropdown)}
+              className="flex items-center gap-1.5 sm:gap-2 text-xs font-bold text-slate-800 bg-slate-50 hover:bg-slate-100 px-2.5 sm:px-3 py-1.5 rounded-xl transition border border-slate-200 cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="max-w-[110px] sm:max-w-[170px] truncate">{cvTitle}</span>
+              {isCurrentPrimary ? (
+                <span className="bg-blue-50 text-blue-800 border border-blue-200 text-[10px] px-2 py-0.2 rounded-md font-extrabold flex items-center gap-0.5 shrink-0">
+                  <Star className="w-2.5 h-2.5 fill-blue-700" /> Principal
+                </span>
+              ) : (
+                <span className="bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.2 rounded font-medium shrink-0">
+                  Secundario
+                </span>
+              )}
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+            </button>
+
+            {/* Menú Desplegable */}
+            {showCvDropdown && (
+              <div className="absolute left-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50 text-xs animate-in fade-in zoom-in duration-150">
+                <div className="text-[10px] font-bold text-slate-400 px-2.5 py-1 uppercase tracking-wider">
+                  Mis Versiones de Currículum
+                </div>
+                <div className="space-y-1 my-1 max-h-56 overflow-y-auto">
+                  {allResumes.map((cv) => (
+                    <button
+                      key={cv.id}
+                      type="button"
+                      disabled={isSwitchingCv}
+                      onClick={() => handleSelectResume(cv.id)}
+                      className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition cursor-pointer ${
+                        cv.id === currentResumeId
+                          ? 'bg-blue-50 text-blue-800 font-bold border border-blue-100'
+                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <FileText className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                        <span className="truncate">{cv.title}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {cv.isDefault && (
+                          <span className="bg-blue-600 text-white text-[9px] font-extrabold px-1.5 py-0.2 rounded-full flex items-center gap-0.5">
+                            <Star className="w-2.5 h-2.5 fill-white" /> Principal
+                          </span>
+                        )}
+                        {cv.id === currentResumeId && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 space-y-1">
+                  {!isCurrentPrimary && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCvDropdown(false);
+                        handleSetCurrentAsPrimary();
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl text-blue-700 hover:bg-blue-50 font-bold flex items-center gap-2 transition cursor-pointer text-[11px]"
+                    >
+                      <Star className="w-3.5 h-3.5 fill-blue-700 shrink-0" />
+                      Establecer este como CV Principal
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCvDropdown(false);
+                      setNewCvModalOpen(true);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-xl text-slate-700 hover:bg-slate-100 font-bold flex items-center gap-2 transition cursor-pointer text-[11px]"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    + Crear nueva versión de CV
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Centro: Título del documento editable */}
-        <div className="flex items-center gap-2 text-xs text-slate-300">
+        <div className="flex items-center gap-2 text-xs text-slate-600">
           <input
             type="text"
             value={cvTitle}
             onChange={(e) => setCvTitle(e.target.value)}
-            className="bg-transparent text-white font-medium text-center focus:bg-slate-800/70 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-0.5 max-w-[200px] sm:max-w-xs transition"
+            className="bg-slate-50 hover:bg-slate-100 focus:bg-white text-slate-900 font-bold text-center border border-slate-200 focus:border-blue-500 rounded-xl px-2.5 py-1 max-w-[150px] sm:max-w-[220px] transition focus:outline-none"
+            title="Editar nombre de este currículum"
           />
           <span title="Guardado automático">
             <Cloud className="w-3.5 h-3.5 text-slate-400" />
           </span>
+          {!isCurrentPrimary && (
+            <button
+              type="button"
+              onClick={handleSetCurrentAsPrimary}
+              className="hidden lg:flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-lg transition cursor-pointer"
+              title="Marcar como el CV que verán todas las empresas"
+            >
+              <Star className="w-3 h-3 fill-blue-700" />
+              <span>Hacer Principal</span>
+            </button>
+          )}
         </div>
 
-        {/* Lado Derecho: Deshacer, Rehacer, Idioma, Descargar */}
+        {/* Lado Derecho: Deshacer, Rehacer, Guardar, Idioma, Descargar */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="hidden sm:flex items-center gap-1 border-r border-slate-700/60 pr-2 text-slate-400">
+          <div className="hidden sm:flex items-center gap-1 border-r border-slate-200 pr-2 text-slate-400">
             <button
               type="button"
               onClick={() => alert('Cambio deshecho.')}
-              className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition"
+              className="p-1.5 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
               title="Deshacer"
             >
               <Undo2 className="w-3.5 h-3.5" />
@@ -1274,7 +2033,7 @@ export default function CVBuilderPage() {
             <button
               type="button"
               onClick={() => alert('Cambio rehecho.')}
-              className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition"
+              className="p-1.5 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
               title="Rehacer"
             >
               <Redo2 className="w-3.5 h-3.5" />
@@ -1285,15 +2044,15 @@ export default function CVBuilderPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="hidden md:flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-2.5 py-1 rounded-lg hover:bg-slate-800 transition"
+            className="hidden md:flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl transition cursor-pointer disabled:opacity-50"
           >
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
+            <Check className="w-3.5 h-3.5 text-blue-600" />
             <span>{saving ? 'Guardando...' : 'Guardar'}</span>
           </button>
 
           {/* Selector de idioma */}
-          <div className="flex items-center gap-1 text-xs font-semibold text-slate-300 bg-slate-800/60 px-2.5 py-1 rounded-lg border border-slate-700/40">
-            <Globe className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1 text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200">
+            <Globe className="w-3.5 h-3.5 text-slate-500" />
             <span>ES</span>
             <ChevronDown className="w-3 h-3 text-slate-400" />
           </div>
@@ -1302,7 +2061,7 @@ export default function CVBuilderPage() {
           <button
             type="button"
             onClick={() => setShowTemplateModal(true)}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+            className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer"
             title="Ver catálogo de plantillas"
           >
             <MoreVertical className="w-4 h-4" />
@@ -1312,10 +2071,20 @@ export default function CVBuilderPage() {
           <button
             type="button"
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-xl shadow-md shadow-blue-950/40 transition cursor-pointer"
+            disabled={downloadingPDF}
+            className="flex items-center gap-2 text-xs font-bold bg-[#0051d5] hover:bg-[#0041ab] disabled:bg-blue-300 text-white px-3.5 py-1.5 rounded-xl shadow-sm transition cursor-pointer disabled:cursor-wait"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Descargar</span>
+            {downloadingPDF ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Generando PDF...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5" />
+                <span>Descargar</span>
+              </>
+            )}
           </button>
         </div>
       </header>
@@ -1386,19 +2155,22 @@ export default function CVBuilderPage() {
               <div className="space-y-4 pt-1">
                 {/* Foto + Nombre, Apellidos, Puesto */}
                 <div className="flex gap-4 items-start">
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-400 rounded-xl flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer transition shrink-0">
+                  <label
+                    htmlFor="cv-photo-input"
+                    className="w-24 h-24 sm:w-28 sm:h-28 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-400 rounded-xl flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer transition shrink-0"
+                  >
                     <input
+                      id="cv-photo-input"
                       type="file"
                       ref={fileInputRef}
                       onChange={handlePhotoUpload}
                       accept="image/*"
-                      className="hidden"
+                      className="sr-only"
                     />
                     {photoUrl ? (
                       <>
                         <img src={photoUrl} alt="Foto CV" className="w-full h-full object-cover" />
                         <div
-                          onClick={() => fileInputRef.current?.click()}
                           className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10px] font-bold"
                         >
                           Cambiar
@@ -1406,6 +2178,7 @@ export default function CVBuilderPage() {
                         <button
                           type="button"
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             setPhotoUrl('');
                           }}
@@ -1416,17 +2189,14 @@ export default function CVBuilderPage() {
                         </button>
                       </>
                     ) : (
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex flex-col items-center text-slate-400 group-hover:text-blue-600 transition"
-                      >
+                      <div className="flex flex-col items-center text-slate-400 group-hover:text-blue-600 transition pointer-events-none">
                         <Camera className="w-6 h-6 mb-1 text-slate-400 group-hover:text-blue-500" />
                         <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-600">
                           Foto
                         </span>
                       </div>
                     )}
-                  </div>
+                  </label>
 
                   <div className="flex-1 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
@@ -4228,17 +4998,14 @@ export default function CVBuilderPage() {
                     )}
 
                     <div className="space-y-3">
-                      <div className={`h-28 rounded-xl ${tmpl.previewBg} p-3 flex flex-col justify-between text-white shadow-inner relative overflow-hidden`}>
-                        <div className="space-y-1">
-                          <div className="w-12 h-1.5 bg-white/70 rounded" />
-                          <div className="w-20 h-2 bg-white rounded" />
-                        </div>
-                        <div className="flex gap-2 items-center">
-                          <div className="w-6 h-6 rounded-full bg-white/40 border border-white/60" />
-                          <div className="space-y-1 flex-1">
-                            <div className="w-full h-1 bg-white/50 rounded" />
-                            <div className="w-2/3 h-1 bg-white/50 rounded" />
-                          </div>
+                      <div className="h-64 sm:h-72 w-full bg-slate-100/70 rounded-2xl p-2.5 flex items-center justify-center overflow-hidden border border-slate-200/80 group-hover:border-blue-300 group-hover:shadow-md transition-all">
+                        <div className="w-full h-full max-w-[195px] bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden relative select-none transform transition-transform group-hover:scale-[1.02]">
+                          {renderTemplateRealSheet(tmpl.id, activeColor, {
+                            firstName: personalData.firstName,
+                            lastName: personalData.lastName,
+                            targetJob: personalData.targetJob,
+                            photoUrl: photoUrl,
+                          })}
                         </div>
                       </div>
 
@@ -4276,6 +5043,75 @@ export default function CVBuilderPage() {
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL CREAR NUEVA VERSIÓN DE CV DIRECTO EN EL CONSTRUCTOR                */}
+      {/* ========================================================================= */}
+      {newCvModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white text-slate-900 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200">
+            <button
+              type="button"
+              onClick={() => setNewCvModalOpen(false)}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Plus className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900 font-['Plus_Jakarta_Sans']">
+                  Nueva Versión de Currículum
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Crea una variante especializada para otro sector laboral
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateNewVersionFromBuilder} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nombre o Título de la Versión:
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={newCvTitle}
+                  onChange={(e) => setNewCvTitle(e.target.value)}
+                  placeholder="Ej. CV - Especialista en Ventas / CV - Desarrollador Frontend"
+                  className="w-full text-xs p-3 bg-white border border-slate-300 text-slate-900 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Se copiarán tus experiencias y habilidades para que las adaptes de inmediato.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setNewCvModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newCvTitle.trim()}
+                  className="bg-[#0051d5] hover:bg-[#0041ab] text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Crear y Editar Ahora
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

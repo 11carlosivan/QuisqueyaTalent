@@ -22,12 +22,17 @@ import {
   Check,
   Send,
   Loader2,
+  FileText,
+  AlertTriangle,
+  UserCheck,
+  X,
+  LogIn,
 } from 'lucide-react';
 
 export default function JobDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token, loginAsDemo, logout } = useAuth();
   const slug = params.slug as string;
 
   const [jobData, setJobData] = useState<any>(null);
@@ -38,6 +43,10 @@ export default function JobDetailPage() {
   const [isApplying, setIsApplying] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [candidateResume, setCandidateResume] = useState<any>(null);
+  const [checkingResume, setCheckingResume] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applySuccess, setApplySuccess] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -54,16 +63,47 @@ export default function JobDetailPage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
+  // Consultar CV del candidato y si ya postuló cuando abre el modal o cambia el usuario
+  useEffect(() => {
+    if (token && user?.role === 'JOB_SEEKER') {
+      setCheckingResume(true);
+      Promise.all([
+        fetch('http://localhost:5000/api/resumes/my', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then((r) => r.json()),
+        fetch('http://localhost:5000/api/applications/my', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then((r) => r.json()),
+      ])
+        .then(([resData, appsData]) => {
+          if (resData && resData.resume) {
+            setCandidateResume(resData.resume);
+          } else {
+            setCandidateResume(null);
+          }
+          if (Array.isArray(appsData) && jobData?.id) {
+            const already = appsData.some((app: any) => app.jobId === jobData.id);
+            if (already) setHasApplied(true);
+          }
+        })
+        .catch((err) => console.error('Error verificando CV:', err))
+        .finally(() => setCheckingResume(false));
+    } else {
+      setCandidateResume(null);
+    }
+  }, [token, user, jobData?.id, applyModalOpen]);
+
   // Generar carta de presentación con IA para este empleo
   const handleGenerateCoverLetter = async () => {
     if (!jobData) return;
     setIsGeneratingAI(true);
+    setApplyError(null);
     try {
       const res = await fetch('http://localhost:5000/api/ai/generate-cover-letter', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('qt_token') || ''}`,
+          Authorization: `Bearer ${token || localStorage.getItem('qt_token') || ''}`,
         },
         body: JSON.stringify({
           jobTitle: jobData.title,
@@ -83,14 +123,20 @@ export default function JobDetailPage() {
 
   // Enviar postulación
   const handleApply = async () => {
+    setApplyError(null);
+
     if (!user) {
-      alert('Debes iniciar sesión como candidato para postularte');
-      router.push('/auth/login');
+      setApplyError('Debes iniciar sesión con una cuenta de Candidato para postularte.');
       return;
     }
 
     if (user.role !== 'JOB_SEEKER') {
-      alert('Debes iniciar sesión con una cuenta de Candidato para postularte');
+      setApplyError('Solo los candidatos pueden postularse. Tu cuenta actual es de Empresa o Administrador.');
+      return;
+    }
+
+    if (!candidateResume) {
+      setApplyError('Debes crear o subir tu currículum en tu perfil antes de poder postularte.');
       return;
     }
 
@@ -100,10 +146,11 @@ export default function JobDetailPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('qt_token') || ''}`,
+          Authorization: `Bearer ${token || localStorage.getItem('qt_token') || ''}`,
         },
         body: JSON.stringify({
           jobId: jobData.id,
+          resumeId: candidateResume.id,
           coverLetter,
         }),
       });
@@ -112,17 +159,17 @@ export default function JobDetailPage() {
 
       if (res.ok) {
         setHasApplied(true);
-        setApplyModalOpen(false);
+        setApplySuccess(true);
         confetti({
-          particleCount: 100,
+          particleCount: 120,
           spread: 70,
           origin: { y: 0.6 },
         });
       } else {
-        alert(data.error || 'No se pudo enviar la postulación');
+        setApplyError(data.error || 'No se pudo procesar la postulación.');
       }
     } catch (e) {
-      alert('Error de conexión con el servidor');
+      setApplyError('Error de conexión con el servidor. Inténtalo nuevamente.');
     } finally {
       setIsApplying(false);
     }
@@ -262,7 +309,7 @@ export default function JobDetailPage() {
 
                 <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
                   {jobData.salaryMin && jobData.salaryMax && (
-                    <div className="text-lg sm:text-xl font-extrabold text-emerald-700">
+                    <div className="text-lg sm:text-xl font-extrabold text-[#0051d5]">
                       RD$ {Number(jobData.salaryMin).toLocaleString()} - RD${' '}
                       {Number(jobData.salaryMax).toLocaleString()}
                       <span className="text-xs font-semibold text-slate-400 block sm:text-right">
@@ -333,7 +380,7 @@ export default function JobDetailPage() {
                   <h2 className="text-lg font-bold text-[#001428] font-['Plus_Jakarta_Sans'] mb-3">
                     Beneficios y Compensación
                   </h2>
-                  <div className="text-sm text-emerald-950 leading-relaxed whitespace-pre-line bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100">
+                  <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-4 rounded-2xl border border-slate-100">
                     {jobData.benefits}
                   </div>
                 </div>
@@ -412,21 +459,24 @@ export default function JobDetailPage() {
                     Postúlate gratis en menos de 1 minuto. Tu currículum será enviado directamente al equipo de selección.
                   </p>
 
-                  {hasApplied ? (
-                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-center space-y-2">
-                      <Check className="w-8 h-8 text-emerald-600 mx-auto" />
-                      <div className="font-bold text-sm">¡Ya te has postulado a este empleo!</div>
-                      <p className="text-xs text-emerald-700">
-                        Puedes dar seguimiento a tu candidatura en tu panel de postulaciones.
+                  {/* Notificación si ya se postuló */}
+                  {hasApplied && (
+                    <div className="bg-blue-50 border border-blue-200 text-blue-900 p-4 rounded-2xl text-center space-y-2 mb-6">
+                      <Check className="w-8 h-8 text-blue-600 mx-auto" />
+                      <div className="font-bold text-sm">Ya te has postulado a esta vacante</div>
+                      <p className="text-xs text-blue-700">
+                        Tu currículum y datos fueron enviados al equipo de reclutamiento de {jobData.company?.name}.
                       </p>
                       <Link
                         href="/dashboard/candidato/postulaciones"
-                        className="inline-block mt-2 text-xs font-bold text-emerald-900 underline"
+                        className="inline-block mt-2 text-xs font-bold text-blue-900 underline"
                       >
-                        Ver mis postulaciones
+                        Ver estado en Mis Postulaciones →
                       </Link>
                     </div>
-                  ) : (
+                  )}
+
+                  {!hasApplied && (
                     <div className="space-y-3">
                       <button
                         onClick={() => setApplyModalOpen(true)}
@@ -482,54 +532,326 @@ export default function JobDetailPage() {
       {applyModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200">
-            <h3 className="text-xl font-extrabold text-slate-900 font-['Plus_Jakarta_Sans'] mb-2">
-              Postularme a: {jobData.title}
-            </h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Tu currículum principal de Quisqueya Talent se adjuntará automáticamente a tu postulación.
-            </p>
+            {/* Botón Cerrar */}
+            <button
+              onClick={() => {
+                setApplyModalOpen(false);
+                setApplyError(null);
+                setApplySuccess(false);
+              }}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
-            {/* Carta de Presentación */}
-            <div className="space-y-3 mb-6">
-              <label className="text-xs font-bold text-slate-700 block">
-                Mensaje o Carta de Presentación (Opcional):
-              </label>
-              <textarea
-                rows={5}
-                value={coverLetter}
-                onChange={(e) => setCoverLetter(e.target.value)}
-                placeholder="Escribe un mensaje breve destacando por qué eres el candidato idóneo para esta vacante..."
-                className="w-full text-xs p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
+            {/* CASO 1: ÉXITO DE POSTULACIÓN */}
+            {applySuccess ? (
+              <div className="text-center py-4 space-y-4">
+                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                  <CheckCircle2 className="w-9 h-9" />
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900 font-['Plus_Jakarta_Sans']">
+                  ¡Postulación Enviada con Éxito!
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                  Tu currículum principal <span className="font-bold text-slate-800">"{candidateResume?.title || 'Mi Currículum'}"</span> y tu carta de presentación han sido entregados al equipo de atracción de talento de{' '}
+                  <span className="font-bold text-slate-800">{jobData.company?.name}</span>.
+                </p>
+                <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+                  <Link
+                    href="/dashboard/candidato/postulaciones"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition text-center"
+                  >
+                    Ver mis postulaciones
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setApplyModalOpen(false);
+                      setApplySuccess(false);
+                    }}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs transition"
+                  >
+                    Cerrar ventana
+                  </button>
+                </div>
+              </div>
+            ) : !user ? (
+              /* CASO 2: SESIÓN NO INICIADA */
+              <div className="space-y-5">
+                <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <LogIn className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-extrabold text-slate-900 font-['Plus_Jakarta_Sans']">
+                      Inicia Sesión para Postularte
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Debes ingresar a tu cuenta de Candidato para enviar tu CV
+                    </p>
+                  </div>
+                </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setApplyModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleApply}
-                disabled={isApplying}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-md transition cursor-pointer"
-              >
-                {isApplying ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Confirmar y Enviar Postulación
-                  </>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="text-xs font-bold text-slate-800">
+                    Vacante: {jobData.title}
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Las empresas en Quisqueya Talent reciben únicamente solicitudes de usuarios registrados con perfil verificado de postulante.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Link
+                    href={`/auth/login?redirect=/empleos/${slug}`}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-md shadow-blue-600/20"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    Iniciar Sesión con mi cuenta
+                  </Link>
+                  <Link
+                    href="/auth/register?role=candidato"
+                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition text-center"
+                  >
+                    Crear cuenta gratis de Candidato
+                  </Link>
+                </div>
+
+                {/* Acceso Rápido Demo */}
+                <div className="pt-3 border-t border-slate-100 text-center">
+                  <div className="text-[11px] text-slate-400 font-medium mb-2">
+                    ¿Deseas probar la postulación inmediatamente?
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await loginAsDemo('candidato');
+                    }}
+                    className="w-full bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-blue-600" />
+                    ⚡ Continuar como Candidato Demo (Carlos Rosario)
+                  </button>
+                </div>
+              </div>
+            ) : user.role !== 'JOB_SEEKER' ? (
+              /* CASO 3: ROL NO VÁLIDO (EMPRESA O ADMINISTRADOR) */
+              <div className="space-y-5">
+                <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-extrabold text-slate-900 font-['Plus_Jakarta_Sans']">
+                      Acceso Exclusivo para Candidatos
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Solo las cuentas de postulantes pueden aplicar a vacantes
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-2">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-amber-600" />
+                    Sesión activa como:{' '}
+                    {user.role === 'ADMIN' || user.role === 'SUPER_ADMIN'
+                      ? 'Administrador'
+                      : 'Empresa / Reclutador'}
+                  </div>
+                  <p className="leading-relaxed">
+                    Actualmente estás autenticado con una cuenta empresarial o administrativa. Para enviar tu currículum a <span className="font-bold">{jobData.company?.name}</span>, debes utilizar una cuenta con rol de <span className="font-bold">Postulante (Candidato)</span>.
+                  </p>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await loginAsDemo('candidato');
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-md shadow-blue-600/20 cursor-pointer"
+                  >
+                    <UserCheck className="w-4 h-4" />
+                    ⚡ Cambiar a Cuenta de Candidato (Carlos Rosario)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      router.push(`/auth/login?redirect=/empleos/${slug}`);
+                    }}
+                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Cerrar sesión e iniciar como otro usuario
+                  </button>
+                </div>
+              </div>
+            ) : checkingResume ? (
+              /* CARGANDO ESTADO DE CV */
+              <div className="py-12 text-center space-y-3">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto" />
+                <div className="text-xs font-semibold text-slate-600">
+                  Verificando tu currículum principal en Quisqueya Talent...
+                </div>
+              </div>
+            ) : !candidateResume ? (
+              /* CASO 4: CANDIDATO SIN CURRÍCULUM CREADO O GUARDADO */
+              <div className="space-y-5">
+                <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-extrabold text-slate-900 font-['Plus_Jakarta_Sans']">
+                      Currículum Requerido
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Debes tener un CV en tu perfil para postularte
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                  <p className="text-xs text-slate-700 leading-relaxed">
+                    Para que el equipo de <span className="font-bold">{jobData.company?.name}</span> pueda evaluar tu perfil laboral, necesitas crear o completar tu currículum en tu perfil de postulante.
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Nuestro asistente con Inteligencia Artificial te ayudará a redactarlo en menos de 2 minutos.
+                  </p>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <Link
+                    href="/dashboard/candidato/cv"
+                    className="w-full bg-[#0051d5] hover:bg-[#0041ab] text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-md shadow-blue-950/20"
+                  >
+                    <Sparkles className="w-4 h-4 text-blue-200" />
+                    🚀 Crear mi CV con IA ahora en Mi Perfil
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => setApplyModalOpen(false)}
+                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs transition"
+                  >
+                    Completar más tarde
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* CASO 5: CANDIDATO CON CV PRINCIPAL LISTO PARA ENVIAR */
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-900 font-['Plus_Jakarta_Sans'] mb-1">
+                  Postularme a: {jobData.title}
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Revisa tu currículum principal adjunto y redacta un mensaje para el reclutador.
+                </p>
+
+                {/* Tarjeta de CV Principal que se adjunta */}
+                <div className="mb-5 p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-extrabold text-blue-950">
+                          {candidateResume.title || 'Mi Currículum Principal'}
+                        </span>
+                        <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-md">
+                          ⭐ Principal
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-blue-700 mt-0.5">
+                        ATS: {candidateResume.atsScore || 85}% • {candidateResume.experiences?.length || 2} experiencias • {candidateResume.skills?.length || 6} habilidades
+                      </div>
+                    </div>
+                  </div>
+                  <Link
+                    href="/dashboard/candidato/cv"
+                    className="text-[11px] font-bold text-blue-700 hover:underline shrink-0"
+                  >
+                    Editar CV
+                  </Link>
+                </div>
+
+                {/* Carta de Presentación */}
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      Mensaje o Carta de Presentación (Opcional):
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateCoverLetter}
+                      disabled={isGeneratingAI}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition cursor-pointer disabled:opacity-50"
+                    >
+                      {isGeneratingAI ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                          Redactando con IA...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                          Redactar con IA
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={coverLetter}
+                    onChange={(e) => setCoverLetter(e.target.value)}
+                    placeholder="Escribe un mensaje breve destacando por qué eres el candidato idóneo para esta vacante..."
+                    className="w-full text-xs p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none leading-relaxed"
+                  />
+                </div>
+
+                {/* Mensaje de Error en línea si ocurre */}
+                {applyError && (
+                  <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-medium flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{applyError}</span>
+                  </div>
                 )}
-              </button>
-            </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setApplyModalOpen(false);
+                      setApplyError(null);
+                    }}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApply}
+                    disabled={isApplying}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-md transition cursor-pointer disabled:opacity-50"
+                  >
+                    {isApplying ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Enviando postulación...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Confirmar y Enviar Postulación
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

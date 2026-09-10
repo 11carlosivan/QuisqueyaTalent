@@ -61,7 +61,7 @@ router.get('/jobs', async (_req: Request, res: Response) => {
 // 3. Moderar vacante (Aprobar, rechazar, destacar)
 router.patch('/jobs/:id/moderate', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status, featured, urgent } = req.body;
 
     const job = await prisma.job.update({
@@ -98,7 +98,7 @@ router.get('/companies', async (_req: Request, res: Response) => {
 // 5. Verificar empresa
 router.patch('/companies/:id/verify', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { isVerified } = req.body;
 
     const company = await prisma.company.update({

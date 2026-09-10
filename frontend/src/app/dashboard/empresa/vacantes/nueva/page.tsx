@@ -248,9 +248,9 @@ export default function NewJobPage() {
             </div>
 
             {/* Rango Salarial en DOP */}
-            <div className="grid grid-cols-2 gap-4 p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200/60">
+            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
               <div>
-                <label className="block text-xs font-bold text-emerald-900 mb-1">
+                <label className="block text-xs font-bold text-slate-800 mb-1">
                   Salario Mínimo (RD$ Mensual)
                 </label>
                 <input
@@ -258,11 +258,11 @@ export default function NewJobPage() {
                   placeholder="85000"
                   value={salaryMin}
                   onChange={(e) => setSalaryMin(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-white border border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-emerald-900 mb-1">
+                <label className="block text-xs font-bold text-slate-800 mb-1">
                   Salario Máximo (RD$ Mensual)
                 </label>
                 <input
@@ -270,7 +270,7 @@ export default function NewJobPage() {
                   placeholder="120000"
                   value={salaryMax}
                   onChange={(e) => setSalaryMax(e.target.value)}
-                  className="w-full text-xs p-2.5 bg-white border border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>

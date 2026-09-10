@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Logo from './Logo';
 import { useAuth } from '../lib/auth-context';
-import { Sparkles, Briefcase, FileText, Building2, UserCircle, LogOut, ShieldCheck, Menu, X, Plus } from 'lucide-react';
+import { Sparkles, Briefcase, FileText, Building2, UserCircle, LogOut, ShieldCheck, Menu, X, Plus, User } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -89,12 +89,24 @@ export const Navbar: React.FC = () => {
               pathname.includes('/cv') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <FileText className="w-4 h-4 text-emerald-500" />
+            <FileText className="w-4 h-4 text-blue-600" />
             Crear CV con IA
-            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
+            <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
               Gratis
             </span>
           </Link>
+
+          {user?.role === 'JOB_SEEKER' && (
+            <Link
+              href="/dashboard/candidato/perfil"
+              className={`text-sm font-semibold transition flex items-center gap-1.5 ${
+                pathname.includes('/perfil') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <User className="w-4 h-4 text-blue-600" />
+              Mi Perfil
+            </Link>
+          )}
 
           <Link
             href="/empresas"
@@ -214,6 +226,15 @@ export const Navbar: React.FC = () => {
           >
             Crear CV con IA (Gratis)
           </Link>
+          {user?.role === 'JOB_SEEKER' && (
+            <Link
+              href="/dashboard/candidato/perfil"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-blue-600 font-bold py-2 px-3 rounded-lg bg-blue-50"
+            >
+              Mi Perfil Profesional (LinkedIn)
+            </Link>
+          )}
           <Link
             href="/empresas"
             onClick={() => setMobileMenuOpen(false)}
