@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -34,7 +36,7 @@ export default function CandidateApplicationsPage() {
     }
 
     if (token) {
-      fetch('http://localhost:5000/api/applications/my', {
+      fetch(`${API_URL}/api/applications/my`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((r) => r.json())

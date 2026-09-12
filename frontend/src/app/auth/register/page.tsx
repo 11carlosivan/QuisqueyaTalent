@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -58,8 +60,8 @@ export default function RegisterPage() {
     try {
       const endpoint =
         tab === 'candidate'
-          ? 'http://localhost:5000/api/auth/register-candidate'
-          : 'http://localhost:5000/api/auth/register-company';
+          ? `${API_URL}/api/auth/register-candidate`
+          : `${API_URL}/api/auth/register-company`;
 
       const payload =
         tab === 'candidate'

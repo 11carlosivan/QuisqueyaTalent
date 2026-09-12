@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -42,10 +44,10 @@ export default function AdminDashboardPage() {
 
     if (token) {
       Promise.all([
-        fetch('http://localhost:5000/api/admin/metrics', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-        fetch('http://localhost:5000/api/ads/admin/all', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-        fetch('http://localhost:5000/api/admin/jobs', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-        fetch('http://localhost:5000/api/admin/companies', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        fetch(`${API_URL}/api/admin/metrics`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        fetch(`${API_URL}/api/ads/admin/all`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        fetch(`${API_URL}/api/admin/jobs`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        fetch(`${API_URL}/api/admin/companies`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       ])
         .then(([m, ads, j, c]) => {
           setMetrics(m);
@@ -61,7 +63,7 @@ export default function AdminDashboardPage() {
   // Guardar configuración de un slot de AdSense
   const handleUpdateAdSlot = async (slot: any) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/ads/admin/${slot.id}`, {
+      const res = await fetch(`${API_URL}/api/ads/admin/${slot.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -80,7 +82,7 @@ export default function AdminDashboardPage() {
   // Moderar vacante
   const handleModerateJob = async (jobId: string, status: string, featured?: boolean) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/jobs/${jobId}/moderate`, {
+      const res = await fetch(`${API_URL}/api/admin/jobs/${jobId}/moderate`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +102,7 @@ export default function AdminDashboardPage() {
   // Alternar verificación de empresa
   const handleToggleVerifyCompany = async (companyId: string, currentStatus: boolean) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/companies/${companyId}/verify`, {
+      const res = await fetch(`${API_URL}/api/admin/companies/${companyId}/verify`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

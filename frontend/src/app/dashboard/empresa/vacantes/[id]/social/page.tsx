@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -77,7 +79,7 @@ export default function SocialMediaAIPage() {
       try {
         const storedToken = token || localStorage.getItem('qt_token');
         if (storedToken) {
-          const res = await fetch('http://localhost:5000/api/jobs/company/mine', {
+          const res = await fetch(`${API_URL}/api/jobs/company/mine`, {
             headers: { Authorization: `Bearer ${storedToken}` },
           });
           const jobs = await res.json();
@@ -91,7 +93,7 @@ export default function SocialMediaAIPage() {
           }
         }
         // Búsqueda directa alternativa
-        const resAll = await fetch('http://localhost:5000/api/jobs?limit=50');
+        const resAll = await fetch(`${API_URL}/api/jobs?limit=50`);
         const dataAll = await resAll.json();
         if (dataAll && Array.isArray(dataAll.data)) {
           const found = dataAll.data.find((j: any) => j.id === jobId);
@@ -113,7 +115,7 @@ export default function SocialMediaAIPage() {
   const generateSocialCopy = async (jobItem: any) => {
     setGenerating(true);
     try {
-      const res = await fetch('http://localhost:5000/api/ai/generate-social', {
+      const res = await fetch(`${API_URL}/api/ai/generate-social`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

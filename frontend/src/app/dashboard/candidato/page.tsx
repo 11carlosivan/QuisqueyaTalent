@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -44,10 +46,10 @@ export default function CandidateDashboardPage() {
   const fetchDashboardData = async (authToken: string) => {
     try {
       const [appsData, resData] = await Promise.all([
-        fetch('http://localhost:5000/api/applications/my', {
+        fetch(`${API_URL}/api/applications/my`, {
           headers: { Authorization: `Bearer ${authToken}` },
         }).then((r) => r.json()),
-        fetch('http://localhost:5000/api/resumes/my', {
+        fetch(`${API_URL}/api/resumes/my`, {
           headers: { Authorization: `Bearer ${authToken}` },
         }).then((r) => r.json()),
       ]);
@@ -80,7 +82,7 @@ export default function CandidateDashboardPage() {
     if (!token) return;
     setIsActionLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/resumes/${cvId}/set-primary`, {
+      const res = await fetch(`${API_URL}/api/resumes/${cvId}/set-primary`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -111,7 +113,7 @@ export default function CandidateDashboardPage() {
     if (!token || !newCvTitle.trim()) return;
     setIsActionLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/resumes/new', {
+      const res = await fetch(`${API_URL}/api/resumes/new`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +150,7 @@ export default function CandidateDashboardPage() {
     if (!confirm(`¿Seguro que deseas eliminar la versión "${title}"? Esta acción no se puede deshacer.`)) return;
     setIsActionLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/resumes/${cvId}`, {
+      const res = await fetch(`${API_URL}/api/resumes/${cvId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

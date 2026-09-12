@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -115,7 +117,7 @@ export default function CandidateProfilePage() {
   const fetchProfileData = async (authToken: string) => {
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:5000/api/candidates/me', {
+      const res = await fetch(`${API_URL}/api/candidates/me`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       if (res.ok) {
@@ -163,7 +165,7 @@ export default function CandidateProfilePage() {
     if (!token) return;
     setIsSaving(true);
     try {
-      const res = await fetch('http://localhost:5000/api/candidates/profile', {
+      const res = await fetch(`${API_URL}/api/candidates/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +200,7 @@ export default function CandidateProfilePage() {
 
     try {
       setFeedback({ text: 'Subiendo foto de perfil...', type: 'success' });
-      const res = await fetch('http://localhost:5000/api/candidates/upload-image', {
+      const res = await fetch(`${API_URL}/api/candidates/upload-image`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -206,11 +208,11 @@ export default function CandidateProfilePage() {
 
       if (res.ok) {
         const data = await res.json();
-        const newAvatarUrl = `http://localhost:5000${data.imageUrl}`;
+        const newAvatarUrl = `${API_URL}${data.imageUrl}`;
         setProfileForm((prev) => ({ ...prev, avatarUrl: newAvatarUrl }));
 
         // Guardar de inmediato
-        await fetch('http://localhost:5000/api/candidates/profile', {
+        await fetch(`${API_URL}/api/candidates/profile`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -237,7 +239,7 @@ export default function CandidateProfilePage() {
     formData.append('certificate', file);
 
     try {
-      const res = await fetch('http://localhost:5000/api/candidates/upload-certificate', {
+      const res = await fetch(`${API_URL}/api/candidates/upload-certificate`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -245,7 +247,7 @@ export default function CandidateProfilePage() {
 
       if (res.ok) {
         const data = await res.json();
-        setCertForm((prev) => ({ ...prev, fileUrl: `http://localhost:5000${data.fileUrl}` }));
+        setCertForm((prev) => ({ ...prev, fileUrl: `${API_URL}${data.fileUrl}` }));
         setUploadedFileName(data.fileName);
         setFeedback({ text: '¡Documento del certificado subido correctamente!', type: 'success' });
       } else {
@@ -265,7 +267,7 @@ export default function CandidateProfilePage() {
     if (!token) return;
     setIsSaving(true);
     try {
-      const res = await fetch('http://localhost:5000/api/candidates/certificates', {
+      const res = await fetch(`${API_URL}/api/candidates/certificates`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -295,7 +297,7 @@ export default function CandidateProfilePage() {
   const handleDeleteCertification = async (certId: string) => {
     if (!token || !confirm('¿Estás seguro de eliminar este certificado?')) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/candidates/certificates/${certId}`, {
+      const res = await fetch(`${API_URL}/api/candidates/certificates/${certId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -314,7 +316,7 @@ export default function CandidateProfilePage() {
     if (!token) return;
     setIsSaving(true);
     try {
-      const res = await fetch('http://localhost:5000/api/candidates/experiences', {
+      const res = await fetch(`${API_URL}/api/candidates/experiences`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -348,7 +350,7 @@ export default function CandidateProfilePage() {
   const handleDeleteExperience = async (expId: string) => {
     if (!token || !confirm('¿Deseas eliminar esta experiencia del cronograma?')) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/candidates/experiences/${expId}`, {
+      const res = await fetch(`${API_URL}/api/candidates/experiences/${expId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -367,7 +369,7 @@ export default function CandidateProfilePage() {
     if (!token) return;
     setIsSaving(true);
     try {
-      const res = await fetch('http://localhost:5000/api/candidates/education', {
+      const res = await fetch(`${API_URL}/api/candidates/education`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -400,7 +402,7 @@ export default function CandidateProfilePage() {
   const handleDeleteEducation = async (eduId: string) => {
     if (!token || !confirm('¿Deseas eliminar este registro de educación?')) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/candidates/education/${eduId}`, {
+      const res = await fetch(`${API_URL}/api/candidates/education/${eduId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

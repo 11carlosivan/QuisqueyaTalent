@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -93,7 +95,7 @@ function EmpleosContent() {
       if (selectedCategory !== 'all') params.set('category', selectedCategory);
       if (selectedWorkplace !== 'all') params.set('workplaceType', selectedWorkplace);
 
-      const res = await fetch(`http://localhost:5000/api/jobs?${params.toString()}`);
+      const res = await fetch(`${API_URL}/api/jobs?${params.toString()}`);
       const data = await res.json();
       if (data && data.data) {
         setJobs(data.data);

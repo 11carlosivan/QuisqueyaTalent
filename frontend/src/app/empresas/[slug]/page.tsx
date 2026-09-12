@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -25,7 +27,7 @@ export default function CompanyProfilePage() {
 
   useEffect(() => {
     if (!slug) return;
-    fetch(`http://localhost:5000/api/companies/${slug}`)
+    fetch(`${API_URL}/api/companies/${slug}`)
       .then((r) => r.json())
       .then((data) => {
         if (data && !data.error) setCompany(data);

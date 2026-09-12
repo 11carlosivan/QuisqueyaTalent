@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -33,7 +35,7 @@ export default function CompanyDashboardPage() {
     }
 
     if (token) {
-      fetch('http://localhost:5000/api/jobs/company/mine', {
+      fetch(`${API_URL}/api/jobs/company/mine`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((r) => r.json())

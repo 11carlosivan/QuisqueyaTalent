@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -51,7 +53,7 @@ export default function JobDetailPage() {
   useEffect(() => {
     if (!slug) return;
     setLoading(true);
-    fetch(`http://localhost:5000/api/jobs/${slug}`)
+    fetch(`${API_URL}/api/jobs/${slug}`)
       .then((res) => res.json())
       .then((data) => {
         if (data && data.job) {
@@ -68,10 +70,10 @@ export default function JobDetailPage() {
     if (token && user?.role === 'JOB_SEEKER') {
       setCheckingResume(true);
       Promise.all([
-        fetch('http://localhost:5000/api/resumes/my', {
+        fetch(`${API_URL}/api/resumes/my`, {
           headers: { Authorization: `Bearer ${token}` },
         }).then((r) => r.json()),
-        fetch('http://localhost:5000/api/applications/my', {
+        fetch(`${API_URL}/api/applications/my`, {
           headers: { Authorization: `Bearer ${token}` },
         }).then((r) => r.json()),
       ])
@@ -99,7 +101,7 @@ export default function JobDetailPage() {
     setIsGeneratingAI(true);
     setApplyError(null);
     try {
-      const res = await fetch('http://localhost:5000/api/ai/generate-cover-letter', {
+      const res = await fetch(`${API_URL}/api/ai/generate-cover-letter`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,7 +144,7 @@ export default function JobDetailPage() {
 
     setIsApplying(true);
     try {
-      const res = await fetch('http://localhost:5000/api/applications', {
+      const res = await fetch(`${API_URL}/api/applications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -54,7 +56,7 @@ export default function PublicCandidateProfilePage() {
     const fetchCandidate = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`http://localhost:5000/api/candidates/${id}`);
+        const res = await fetch(`${API_URL}/api/candidates/${id}`);
         if (res.ok) {
           const data = await res.json();
           setCandidate(data);

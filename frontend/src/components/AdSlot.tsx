@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useEffect, useState } from 'react';
 
 interface AdSlotProps {
@@ -17,7 +19,7 @@ export const AdSlot: React.FC<AdSlotProps> = ({
   const [slotConfig, setSlotConfig] = useState<any>(null);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/ads/slots')
+    fetch(`${API_URL}/api/ads/slots`)
       .then((res) => res.json())
       .then((data) => {
         if (data && data[slotCode]) {

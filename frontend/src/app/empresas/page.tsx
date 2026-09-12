@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Building2, CheckCircle2, MapPin, ArrowRight, Briefcase, Loader2 } from 'lucide-react';
@@ -9,7 +11,7 @@ export default function CompaniesDirectoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/companies')
+    fetch(`${API_URL}/api/companies`)
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setCompanies(data);

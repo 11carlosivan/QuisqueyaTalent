@@ -10,6 +10,7 @@ dist/
 # Variables de entorno
 .env
 .env.*
+!.env*.example
 
 # Archivos de depuración
 npm-debug.log*

@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -1200,8 +1202,8 @@ export default function CVBuilderPage() {
       const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const paramResumeId = urlParams?.get('resumeId');
       const fetchUrl = paramResumeId
-        ? `http://localhost:5000/api/resumes/my?resumeId=${paramResumeId}`
-        : 'http://localhost:5000/api/resumes/my';
+        ? `${API_URL}/api/resumes/my?resumeId=${paramResumeId}`
+        : `${API_URL}/api/resumes/my`;
 
       fetch(fetchUrl, {
         headers: { Authorization: `Bearer ${token}` },
@@ -1244,7 +1246,7 @@ export default function CVBuilderPage() {
     setIsSwitchingCv(true);
     setShowCvDropdown(false);
     try {
-      const res = await fetch(`http://localhost:5000/api/resumes/my?resumeId=${targetId}`, {
+      const res = await fetch(`${API_URL}/api/resumes/my?resumeId=${targetId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -1270,7 +1272,7 @@ export default function CVBuilderPage() {
   const handleSetCurrentAsPrimary = async () => {
     if (!token || !currentResumeId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/resumes/${currentResumeId}/set-primary`, {
+      const res = await fetch(`${API_URL}/api/resumes/${currentResumeId}/set-primary`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1294,7 +1296,7 @@ export default function CVBuilderPage() {
     e.preventDefault();
     if (!token || !newCvTitle.trim()) return;
     try {
-      const res = await fetch('http://localhost:5000/api/resumes/new', {
+      const res = await fetch(`${API_URL}/api/resumes/new`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1429,7 +1431,7 @@ export default function CVBuilderPage() {
     setImprovingAI(true);
     try {
       if (field === 'summary') {
-        const res = await fetch('http://localhost:5000/api/ai/resume-improve', {
+        const res = await fetch(`${API_URL}/api/ai/resume-improve`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1451,7 +1453,7 @@ export default function CVBuilderPage() {
         }
       } else if (field === 'experience' && index !== undefined) {
         const exp = experiences[index];
-        const res = await fetch('http://localhost:5000/api/ai/resume-improve', {
+        const res = await fetch(`${API_URL}/api/ai/resume-improve`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1493,7 +1495,7 @@ export default function CVBuilderPage() {
     if (!token) return;
     setSaving(true);
     try {
-      const res = await fetch('http://localhost:5000/api/resumes/my', {
+      const res = await fetch(`${API_URL}/api/resumes/my`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

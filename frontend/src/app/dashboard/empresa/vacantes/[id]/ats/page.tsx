@@ -1,5 +1,7 @@
 'use client';
 
+import { API_URL } from '@/lib/api';
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -50,7 +52,7 @@ export default function JobATSPage() {
   const fetchCandidates = async () => {
     if (!token || !jobId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/applications/job/${jobId}`, {
+      const res = await fetch(`${API_URL}/api/applications/job/${jobId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -76,7 +78,7 @@ export default function JobATSPage() {
   // Cambiar estado en el pipeline
   const handleMoveStage = async (appId: string, newStatus: string) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/applications/${appId}/status`, {
+      const res = await fetch(`${API_URL}/api/applications/${appId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +104,7 @@ export default function JobATSPage() {
   const handleSaveFeedback = async () => {
     if (!selectedApp) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/applications/${selectedApp.id}/feedback`, {
+      const res = await fetch(`${API_URL}/api/applications/${selectedApp.id}/feedback`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
