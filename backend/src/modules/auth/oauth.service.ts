@@ -37,7 +37,7 @@ export class OAuthService {
       return `${this.getBackendUrl()}/api/auth/oauth-mock?provider=google&role=${encodeURIComponent(role)}`;
     }
 
-    const redirectUri = encodeURIComponent(`${this.getBackendUrl()}/api/auth/google/callback`);
+    const redirectUri = encodeURIComponent(process.env.GOOGLE_REDIRECT_URI || `${this.getBackendUrl()}/api/auth/callback/google`);
     const scope = encodeURIComponent('openid email profile');
     const state = encodeURIComponent(JSON.stringify({ role }));
 
@@ -47,7 +47,7 @@ export class OAuthService {
   static async handleGoogleCallback(code: string, stateStr?: string): Promise<{ token: string; role: Role; redirectUrl: string }> {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const redirectUri = `${this.getBackendUrl()}/api/auth/google/callback`;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${this.getBackendUrl()}/api/auth/callback/google`;
 
     let role = 'candidato';
     if (stateStr) {

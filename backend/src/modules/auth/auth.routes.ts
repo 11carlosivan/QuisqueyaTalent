@@ -291,8 +291,8 @@ router.get('/google', async (req: Request, res: Response) => {
   return res.redirect(url);
 });
 
-// 2. Callback de Google
-router.get('/google/callback', async (req: Request, res: Response) => {
+// 2. Callback de Google (soporta ambas rutas estándar)
+const googleCallbackHandler = async (req: Request, res: Response) => {
   const { OAuthService } = await import('./oauth.service');
   const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://www.quisqueyatalent.com.do' : 'http://localhost:3000');
   const cleanFront = frontendUrl.split(',')[0].trim();
@@ -311,7 +311,10 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     console.error('Error en Google Callback:', error);
     return res.redirect(`${cleanFront}/auth/login?error=${encodeURIComponent(error.message || 'Error con Google')}`);
   }
-});
+};
+
+router.get('/google/callback', googleCallbackHandler);
+router.get('/callback/google', googleCallbackHandler);
 
 // 3. Iniciar sesión con LinkedIn
 router.get('/linkedin', async (req: Request, res: Response) => {
