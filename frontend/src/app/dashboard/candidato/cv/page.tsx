@@ -980,6 +980,7 @@ export default function CVBuilderPage() {
   const [isSwitchingCv, setIsSwitchingCv] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const [documentPages, setDocumentPages] = useState(1);
 
   const isCurrentPrimary = allResumes.find((r) => r.id === currentResumeId)?.isDefault || false;
 
@@ -1239,6 +1240,37 @@ export default function CVBuilderPage() {
         });
     }
   }, [user, token, isLoading]);
+
+  // Monitor dinámico de altura del lienzo para detección y corte de hojas A4
+  useEffect(() => {
+    const updatePages = () => {
+      const el = document.getElementById('cv-document-canvas');
+      if (el) {
+        // En ancho 595px (proporción estándar A4 1:1.414), 1 hoja A4 equivale a 842px
+        const scrollH = el.scrollHeight;
+        const pages = Math.ceil(scrollH / 842);
+        setDocumentPages(Math.max(1, pages));
+      }
+    };
+
+    updatePages();
+    const timer = setTimeout(updatePages, 300);
+    return () => clearTimeout(timer);
+  }, [
+    personalData,
+    experiences,
+    education,
+    skills,
+    certificates,
+    languages,
+    hobbies,
+    references,
+    summary,
+    activeTemplate,
+    activeSpacing,
+    fontSizeScale,
+    activeFont,
+  ]);
 
   // Cambiar de CV dentro del creador
   const handleSelectResume = async (targetId: string) => {
@@ -1536,7 +1568,7 @@ export default function CVBuilderPage() {
     }
   };
 
-  // Descargar CV en PDF directamente (sin abrir diálogo de impresión Ctrl+P)
+  // Descargar CV en PDF con soporte completo para múltiples páginas A4 (sin cortar información)
   const handleDownloadPDF = async () => {
     const el = document.getElementById('cv-document-canvas');
     if (!el) {
@@ -1557,17 +1589,34 @@ export default function CVBuilderPage() {
         imageTimeout: 8000,
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pageWidth = 210; // Ancho A4 en mm
+      const pageHeight = 297; // Alto A4 en mm
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * pageWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Página 1
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pageHeight;
+
+      // Páginas adicionales si el contenido supera 1 hoja (tolerancia de 2mm)
+      while (heightLeft > 2) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pageHeight;
+      }
+
       const fileName = `${personalData.firstName || 'Curriculum'}_${personalData.lastName || 'Vitae'}_QuisqueyaTalent.pdf`;
       pdf.save(fileName);
 
@@ -3875,21 +3924,76 @@ export default function CVBuilderPage() {
         {/* ========================================================================= */}
         {/* PANEL DERECHO: LIENZO A4 CON ESTILOS FIELES A CVWIZARD                    */}
         {/* ========================================================================= */}
-        <div className="lg:col-span-6 bg-slate-200/80 p-4 sm:p-8 flex flex-col justify-between overflow-y-auto max-h-[calc(100vh-56px)] relative">
+        <div className="lg:col-span-6 bg-slate-200/80 p-4 sm:p-8 flex flex-col overflow-y-auto max-h-[calc(100vh-56px)] relative pb-28">
+          {/* BARRA DE ESTADO DE PÁGINAS A4 Y AJUSTE RÁPIDO */}
+          <div className="w-full max-w-[595px] mx-auto mb-3 flex items-center justify-between text-xs px-1">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white text-slate-700 border border-slate-200 shadow-2xs">
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                {documentPages === 1 ? '1 Hoja A4' : `${documentPages} Hojas A4 (Multi-página)`}
+              </span>
+              {documentPages > 1 && (
+                <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-medium hidden sm:inline">
+                  Tu CV se descargará en {documentPages} páginas continuas sin cortes
+                </span>
+              )}
+            </div>
+
+            {documentPages > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSpacing('compact');
+                  setFontSizeScale('S');
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition cursor-pointer shadow-2xs"
+                title="Ajusta espaciado y tipografía para intentar que entre en 1 sola hoja"
+              >
+                <Sparkles className="w-3 h-3 text-blue-600" />
+                Ajustar a 1 hoja
+              </button>
+            )}
+          </div>
+
           {/* LIENZO A4 */}
           <div
             id="cv-document-canvas"
-            className="w-full max-w-[595px] mx-auto bg-white rounded-xl shadow-2xl overflow-hidden min-h-[842px] relative text-slate-900 transition-all duration-300"
+            className="w-full max-w-[595px] mx-auto bg-white rounded-xl shadow-2xl min-h-[842px] relative text-slate-900 transition-all duration-300"
             style={{ fontFamily: activeFont }}
           >
+            {/* Marcadores Visuales de Salto de Página A4 (Ocultos al descargar PDF) */}
+            {documentPages >= 2 && (
+              <div
+                data-html2canvas-ignore="true"
+                className="absolute left-0 right-0 top-[842px] pointer-events-none z-30 flex items-center justify-center -translate-y-1/2"
+              >
+                <div className="w-full border-b-2 border-dashed border-blue-400/80" />
+                <span className="absolute bg-blue-600 text-white text-[9px] font-bold px-3 py-0.5 rounded-full shadow-md uppercase tracking-wider">
+                  Fin de Hoja 1 • Comienzo de Hoja 2 (Corte A4)
+                </span>
+              </div>
+            )}
+
+            {documentPages >= 3 && (
+              <div
+                data-html2canvas-ignore="true"
+                className="absolute left-0 right-0 top-[1684px] pointer-events-none z-30 flex items-center justify-center -translate-y-1/2"
+              >
+                <div className="w-full border-b-2 border-dashed border-blue-400/80" />
+                <span className="absolute bg-blue-600 text-white text-[9px] font-bold px-3 py-0.5 rounded-full shadow-md uppercase tracking-wider">
+                  Fin de Hoja 2 • Comienzo de Hoja 3 (Corte A4)
+                </span>
+              </div>
+            )}
+
             {/* =================================================================== */}
             {/* 1. PLANTILLA: CRONOLÓGICA (CVWIZARD)                                */}
             {/* =================================================================== */}
             {normalizedTemplate === 'cronologica' && (
-              <div className="min-h-[842px] bg-white flex flex-col">
+              <div className="min-h-[842px] bg-white flex flex-col pb-8">
                 <div className="w-full h-2" style={{ backgroundColor: activeColor }} />
                 
-                <div className={`${spacingStyles.padding} ${spacingStyles.gap} flex-1 flex flex-col justify-between`}>
+                <div className={`${spacingStyles.padding} ${spacingStyles.gap} flex-1 flex flex-col`}>
                   <div className="flex items-start justify-between border-b pb-4" style={{ borderColor: `${activeColor}40` }}>
                     <div className="space-y-1">
                       <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-none">
@@ -4012,8 +4116,8 @@ export default function CVBuilderPage() {
             {/* 3. PLANTILLA: CIRCULAR (STANFORD DE CVWIZARD)                       */}
             {/* =================================================================== */}
             {normalizedTemplate === 'circular' && (
-              <div className="grid grid-cols-12 min-h-[842px]">
-                <div className="col-span-5 bg-[#F4F6F9] border-r border-slate-200/80 flex flex-col justify-between relative overflow-hidden">
+              <div className="grid grid-cols-12 min-h-[842px] pb-8">
+                <div className="col-span-5 bg-[#F4F6F9] border-r border-slate-200/80 flex flex-col relative pb-8">
                   <div
                     className="relative pt-7 pb-8 px-4 text-center text-white shadow-xs"
                     style={{
@@ -4452,10 +4556,10 @@ export default function CVBuilderPage() {
             {/* 9. PLANTILLA: VERTICAL (CVWIZARD)                                   */}
             {/* =================================================================== */}
             {normalizedTemplate === 'vertical' && (
-              <div className="min-h-[842px] bg-white flex overflow-hidden">
+              <div className="min-h-[842px] bg-white flex pb-8">
                 <div className="w-3 shrink-0" style={{ backgroundColor: activeColor }} />
 
-                <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between space-y-5">
+                <div className="flex-1 p-6 sm:p-8 flex flex-col space-y-5">
                   <div className="flex items-start justify-between pb-4 border-b border-slate-200">
                     <div>
                       <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight uppercase">
