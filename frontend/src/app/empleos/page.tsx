@@ -6,6 +6,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import AdSlot from '../../components/AdSlot';
+import JobAlertBanner from '../../components/JobAlertBanner';
 import {
   Search,
   MapPin,
@@ -355,6 +356,9 @@ function EmpleosContent() {
             ))}
           </div>
         )}
+
+        {/* Captador de Alertas de Empleo */}
+        <JobAlertBanner />
       </div>
     </div>
   );

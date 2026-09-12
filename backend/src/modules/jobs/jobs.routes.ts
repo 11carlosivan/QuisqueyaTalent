@@ -291,4 +291,46 @@ router.patch('/:id/status', authenticate, requireRole(Role.COMPANY_OWNER, Role.C
   }
 });
 
+// 8. Suscripción pública a alertas de empleo por correo
+router.post('/alerts', async (req: Request, res: Response) => {
+  try {
+    const { email, category, province } = req.body;
+
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Debes proporcionar un correo electrónico válido.' });
+    }
+
+    // Evitar duplicados exactos
+    const existing = await prisma.jobAlert.findFirst({
+      where: {
+        email,
+        category: category || null,
+        province: province || null,
+        isActive: true,
+      },
+    });
+
+    if (existing) {
+      return res.json({ message: '¡Ya estás suscrito a estas alertas de empleo!' });
+    }
+
+    const alert = await prisma.jobAlert.create({
+      data: {
+        email,
+        category: category || null,
+        province: province || null,
+        isActive: true,
+      },
+    });
+
+    return res.status(201).json({
+      message: '¡Te has suscrito con éxito! Recibirás vacantes destacadas en tu correo.',
+      alert,
+    });
+  } catch (error) {
+    console.error('Error al suscribir a alertas:', error);
+    return res.status(500).json({ error: 'No se pudo completar la suscripción a alertas.' });
+  }
+});
+
 export default router;

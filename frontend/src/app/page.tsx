@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import AdSlot from '../components/AdSlot';
+import JobAlertBanner from '../components/JobAlertBanner';
 import {
   Search,
   MapPin,
@@ -449,6 +450,9 @@ function HomePageContent() {
             ))}
           </div>
         )}
+
+        {/* Banner Captador de Alertas de Empleo */}
+        <JobAlertBanner />
       </section>
 
       {/* 5. CREADOR DE CV BANNER (HERRAMIENTA CLAVE DE QUISQUEYA TALENT) */}

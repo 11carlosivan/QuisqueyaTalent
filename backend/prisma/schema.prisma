@@ -244,7 +244,8 @@ model SavedJob {
 
 model JobAlert {
   id        String   @id @default(uuid())
-  userId    String
+  userId    String?
+  email     String?
   keyword   String?
   category  String?
   province  String?
@@ -252,7 +253,7 @@ model JobAlert {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("job_alerts")
 }
