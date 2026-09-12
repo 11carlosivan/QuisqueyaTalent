@@ -389,4 +389,31 @@ router.put('/my', authenticate, async (req: Request, res: Response) => {
   }
 });
 
+// 3. Importar información desde perfil de LinkedIn (Estilo CVwizard)
+router.post('/import-linkedin', async (req: Request, res: Response) => {
+  try {
+    const { username, url } = req.body;
+    const target = username || url;
+
+    if (!target) {
+      return res.status(400).json({ error: 'Debes proporcionar un nombre de usuario o enlace de LinkedIn' });
+    }
+
+    const { LinkedInService } = await import('./linkedin.service');
+    const profileData = await LinkedInService.extractProfile(target);
+
+    return res.json({
+      success: true,
+      message: 'Perfil de LinkedIn importado exitosamente',
+      data: profileData,
+    });
+  } catch (error: any) {
+    console.error('Error al importar perfil de LinkedIn:', error);
+    return res.status(400).json({
+      error: error.message || 'No se pudo procesar la importación de LinkedIn',
+    });
+  }
+});
+
 export default router;
+

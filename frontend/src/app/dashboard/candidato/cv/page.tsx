@@ -984,6 +984,12 @@ export default function CVBuilderPage() {
   const [isMultiPage, setIsMultiPage] = useState(true);
   const [pageFilter, setPageFilter] = useState<'all' | '1' | '2'>('all');
 
+  // Estados para Importación desde LinkedIn estilo CVwizard
+  const [showLinkedInModal, setShowLinkedInModal] = useState(false);
+  const [linkedInInput, setLinkedInInput] = useState('');
+  const [importingLinkedIn, setImportingLinkedIn] = useState(false);
+  const [linkedInError, setLinkedInError] = useState<string | null>(null);
+
   const isCurrentPrimary = allResumes.find((r) => r.id === currentResumeId)?.isDefault || false;
 
   // Normalización de plantilla (soporta nombres CVwizard y alias de compatibilidad)
@@ -1458,6 +1464,140 @@ export default function CVBuilderPage() {
       { name: 'Francés', proficiency: 'Intermedio / B1' },
     ]);
     confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
+  };
+
+  // Importar información de perfil de LinkedIn estilo CVwizard
+  const handleImportLinkedIn = async () => {
+    if (!linkedInInput.trim()) {
+      setLinkedInError('Por favor ingresa tu nombre de usuario o enlace de LinkedIn.');
+      return;
+    }
+    setImportingLinkedIn(true);
+    setLinkedInError(null);
+
+    try {
+      const res = await fetch(`${API_URL}/api/resumes/import-linkedin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ username: linkedInInput.trim() }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'No se pudo importar el perfil de LinkedIn.');
+      }
+
+      const p = json.data;
+
+      // 1. Datos personales
+      if (p.personalData) {
+        setPersonalData((prev) => ({
+          ...prev,
+          firstName: p.personalData.firstName || prev.firstName,
+          lastName: p.personalData.lastName || prev.lastName,
+          targetJob: p.personalData.targetJob || prev.targetJob,
+          city: p.personalData.city || prev.city,
+          linkedin: p.personalData.linkedin || prev.linkedin,
+          useAsTitle: true,
+        }));
+        if (p.personalData.photoUrl) {
+          setPhotoUrl(p.personalData.photoUrl);
+        }
+        if (!enabledFields.includes('linkedin')) {
+          setEnabledFields((prev) => [...prev, 'linkedin']);
+        }
+      }
+
+      // 2. Extracto / Perfil profesional
+      if (p.summary) {
+        setSummary(p.summary);
+      }
+
+      // 3. Experiencias laborales
+      if (p.experiences && p.experiences.length > 0) {
+        const parseDate = (d?: string) => {
+          if (!d) return { month: '', year: '' };
+          const parts = String(d).split('-');
+          const year = parts[0] || '';
+          let month = '';
+          if (parts[1]) {
+            const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const idx = parseInt(parts[1], 10) - 1;
+            if (idx >= 0 && idx < 12) month = months[idx];
+          }
+          return { month, year };
+        };
+
+        setExperiences(
+          p.experiences.map((exp: any, idx: number) => {
+            const start = parseDate(exp.startDate);
+            const end = parseDate(exp.endDate);
+            return {
+              id: `exp-li-${Date.now()}-${idx}`,
+              position: exp.title || 'Puesto de trabajo',
+              company: exp.company || 'Empresa',
+              city: exp.city || '',
+              startMonth: start.month,
+              startYear: start.year,
+              endMonth: end.month,
+              endYear: end.year,
+              isCurrent: exp.current !== undefined ? exp.current : !exp.endDate,
+              description: exp.description || '',
+            };
+          })
+        );
+      }
+
+      // 4. Formación / Educación
+      if (p.education && p.education.length > 0) {
+        const parseDate = (d?: string) => {
+          if (!d) return { month: '', year: '' };
+          const parts = String(d).split('-');
+          return { year: parts[0] || '' };
+        };
+
+        setEducation(
+          p.education.map((edu: any, idx: number) => {
+            const start = parseDate(edu.startDate);
+            const end = parseDate(edu.endDate);
+            return {
+              id: `edu-li-${Date.now()}-${idx}`,
+              degree: edu.degree || 'Grado o Certificación',
+              institution: edu.institution || 'Universidad / Instituto',
+              city: '',
+              startMonth: '',
+              startYear: start.year,
+              endMonth: '',
+              endYear: end.year,
+              isCurrent: false,
+              description: edu.description || '',
+            };
+          })
+        );
+      }
+
+      // 5. Habilidades
+      if (p.skills && p.skills.length > 0) {
+        setSkills(p.skills.map((s: string) => ({ name: s, level: 'Avanzado' })));
+      }
+
+      confetti({
+        particleCount: 75,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+
+      setShowLinkedInModal(false);
+      setLinkedInInput('');
+    } catch (err: any) {
+      console.error(err);
+      setLinkedInError(err.message || 'Ocurrió un error importando el perfil.');
+    } finally {
+      setImportingLinkedIn(false);
+    }
   };
 
   // Asistente IA para pulir texto en el CV Builder
@@ -2277,14 +2417,8 @@ export default function CVBuilderPage() {
             <button
               type="button"
               onClick={() => {
-                const url = prompt('Ingresa tu URL de LinkedIn para sincronizar:');
-                if (url) {
-                  setPersonalData((prev) => ({ ...prev, linkedin: url }));
-                  if (!enabledFields.includes('linkedin')) {
-                    setEnabledFields([...enabledFields, 'linkedin']);
-                  }
-                  alert('Perfil de LinkedIn vinculado.');
-                }
+                setShowLinkedInModal(true);
+                setLinkedInError(null);
               }}
               className="flex flex-col items-center justify-center gap-1.5 p-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-slate-700 text-[11px] font-semibold transition cursor-pointer text-center"
             >
@@ -5382,6 +5516,111 @@ export default function CVBuilderPage() {
                   <Plus className="w-3.5 h-3.5" />
                   Crear y Editar Ahora
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* MODAL IMPORTAR PERFIL DE LINKEDIN (IDÉNTICO A CVWIZARD)                   */}
+      {/* ========================================================================= */}
+      {showLinkedInModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white text-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200">
+            <button
+              type="button"
+              onClick={() => {
+                if (!importingLinkedIn) {
+                  setShowLinkedInModal(false);
+                  setLinkedInError(null);
+                }
+              }}
+              disabled={importingLinkedIn}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer disabled:opacity-50"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-[#0077b5]/10 text-[#0077b5] flex items-center justify-center font-black text-lg">
+                in
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900 font-['Plus_Jakarta_Sans']">
+                  Importar perfil de LinkedIn
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Copia y sincroniza tu información laboral al instante
+                </p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleImportLinkedIn();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  URL de tu perfil de LinkedIn:
+                </label>
+                <div className="flex rounded-xl border border-slate-300 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-slate-50 transition">
+                  <span className="inline-flex items-center px-3 text-xs text-slate-500 font-semibold bg-slate-100/90 border-r border-slate-300 select-none">
+                    linkedin.com/in/
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={linkedInInput}
+                    onChange={(e) => {
+                      setLinkedInInput(e.target.value);
+                      if (linkedInError) setLinkedInError(null);
+                    }}
+                    placeholder="nombre de usuario"
+                    disabled={importingLinkedIn}
+                    className="flex-1 p-2.5 sm:p-3 text-xs bg-white text-slate-900 focus:outline-none"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Ejemplo: <span className="font-mono text-slate-600">carlos-rosario</span> o pega tu enlace completo.
+                </p>
+              </div>
+
+              {linkedInError && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1 animate-in fade-in">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <span>⚠️</span>
+                    <span>Aviso de importación</span>
+                  </div>
+                  <p>{linkedInError}</p>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={importingLinkedIn || !linkedInInput.trim()}
+                  className="w-full bg-[#0051d5] hover:bg-[#0041ab] disabled:bg-blue-300 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {importingLinkedIn ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Extrayendo información de LinkedIn...</span>
+                    </>
+                  ) : (
+                    <span>Importar</span>
+                  )}
+                </button>
+              </div>
+
+              <div className="p-3 bg-blue-50/60 border border-blue-100/80 rounded-xl text-[11px] text-blue-900/90 flex items-start gap-2">
+                <span className="text-sm shrink-0">💡</span>
+                <span>
+                  <strong>Tip:</strong> Extraeremos automáticamente tu nombre, titular, foto oficial, extracto, historial de empleos y universidades.
+                </span>
               </div>
             </form>
           </div>
