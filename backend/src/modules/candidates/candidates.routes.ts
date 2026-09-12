@@ -320,28 +320,43 @@ router.post(
 );
 
 // 5. Subida de imagen de avatar o portada
-router.post('/upload-image', authenticate, memoryUpload.single('image'), async (req: Request, res: Response) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No se subió ninguna imagen' });
+router.post(
+  '/upload-image',
+  authenticate,
+  (req: Request, res: Response, next: any) => {
+    memoryUpload.single('image')(req, res, (err: any) => {
+      if (err) {
+        console.error('Error al procesar archivo con multer:', err);
+        return res.status(400).json({
+          error: err.message || 'El archivo seleccionado no es válido o supera el límite permitido',
+        });
+      }
+      next();
+    });
+  },
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No se ha seleccionado ninguna imagen' });
+      }
+
+      const { url } = await storageService.uploadFile({
+        buffer: req.file.buffer,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        folder: 'avatars',
+      });
+
+      return res.json({
+        message: 'Imagen subida exitosamente',
+        imageUrl: url,
+      });
+    } catch (error: any) {
+      console.error('Error al subir imagen:', error);
+      return res.status(400).json({ error: error.message || 'Error al procesar la imagen' });
     }
-
-    const { url } = await storageService.uploadFile({
-      buffer: req.file.buffer,
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      folder: 'avatars',
-    });
-
-    return res.json({
-      message: 'Imagen subida exitosamente',
-      imageUrl: url,
-    });
-  } catch (error: any) {
-    console.error('Error al subir imagen:', error);
-    return res.status(400).json({ error: error.message || 'Error al subir la imagen' });
   }
-});
+);
 
 // 6. Agregar un certificado a la versión principal del CV del candidato
 router.post('/certificates', authenticate, async (req: Request, res: Response) => {

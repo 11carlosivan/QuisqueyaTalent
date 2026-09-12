@@ -10,16 +10,23 @@ const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'quisqueyatalent-storage';
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://pub-1b2937289c0d4d57adcfed5505a3fd8b.r2.dev';
 
-const s3Client = R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY
-  ? new S3Client({
+function getR2Client(): S3Client | null {
+  const accountId = process.env.R2_ACCOUNT_ID || '92980d03d8d512536a949709e511a303';
+  const accessKey = process.env.R2_ACCESS_KEY_ID || '';
+  const secretKey = process.env.R2_SECRET_ACCESS_KEY || '';
+
+  if (accessKey && secretKey) {
+    return new S3Client({
       region: 'auto',
-      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: R2_ACCESS_KEY_ID,
-        secretAccessKey: R2_SECRET_ACCESS_KEY,
+        accessKeyId: accessKey,
+        secretAccessKey: secretKey,
       },
-    })
-  : null;
+    });
+  }
+  return null;
+}
 
 export const storageService = {
   /**
@@ -92,30 +99,39 @@ export const storageService = {
     const uniqueId = crypto.randomBytes(16).toString('hex');
     const key = `${folder}/${uniqueId}${ext}`;
 
+    const client = getR2Client();
+    const bucketName = process.env.R2_BUCKET_NAME || 'quisqueyatalent-storage';
+    const publicUrl = process.env.R2_PUBLIC_URL || 'https://pub-1b2937289c0d4d57adcfed5505a3fd8b.r2.dev';
+
     // 3. Subida a Cloudflare R2 si está configurado
-    if (s3Client) {
-      await s3Client.send(
-        new PutObjectCommand({
-          Bucket: R2_BUCKET_NAME,
-          Key: key,
-          Body: buffer,
-          ContentType: mimetype,
-        })
-      );
+    if (client) {
+      try {
+        await client.send(
+          new PutObjectCommand({
+            Bucket: bucketName,
+            Key: key,
+            Body: buffer,
+            ContentType: mimetype,
+          })
+        );
 
-      // Registrar consumo en el Guardián
-      await prisma.storageGuard.update({
-        where: { id: guard.id },
-        data: {
-          usedStorageBytes: { increment: fileSize },
-          totalFilesUploaded: { increment: 1 },
-        },
-      });
+        // Registrar consumo en el Guardián
+        await prisma.storageGuard.update({
+          where: { id: guard.id },
+          data: {
+            usedStorageBytes: { increment: fileSize },
+            totalFilesUploaded: { increment: 1 },
+          },
+        });
 
-      return {
-        url: `${R2_PUBLIC_URL.replace(/\/$/, '')}/${key}`,
-        size: fileSize,
-      };
+        return {
+          url: `${publicUrl.replace(/\/$/, '')}/${key}`,
+          size: fileSize,
+        };
+      } catch (r2Error: any) {
+        console.error('Error detallado de Cloudflare R2 al subir:', r2Error);
+        throw new Error(`Error en almacenamiento Cloudflare R2: ${r2Error.message || r2Error.Code || 'Acceso Denegado'}`);
+      }
     } else {
       // Fallback a almacenamiento local si no hay claves R2
       const fs = require('fs');
