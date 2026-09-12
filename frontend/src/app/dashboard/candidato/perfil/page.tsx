@@ -208,7 +208,7 @@ export default function CandidateProfilePage() {
 
       if (res.ok) {
         const data = await res.json();
-        const newAvatarUrl = `${API_URL}${data.imageUrl}`;
+        const newAvatarUrl = data.imageUrl?.startsWith('http') ? data.imageUrl : `${API_URL}${data.imageUrl}`;
         setProfileForm((prev) => ({ ...prev, avatarUrl: newAvatarUrl }));
 
         // Guardar de inmediato
@@ -223,9 +223,12 @@ export default function CandidateProfilePage() {
 
         await fetchProfileData(token);
         setFeedback({ text: '¡Foto de perfil actualizada!', type: 'success' });
+      } else {
+        const data = await res.json();
+        setFeedback({ text: data.error || 'Error al subir foto de perfil', type: 'error' });
       }
-    } catch (err) {
-      setFeedback({ text: 'Error al subir foto de perfil', type: 'error' });
+    } catch (err: any) {
+      setFeedback({ text: err.message || 'Error al subir foto de perfil', type: 'error' });
     }
   };
 
@@ -247,15 +250,16 @@ export default function CandidateProfilePage() {
 
       if (res.ok) {
         const data = await res.json();
-        setCertForm((prev) => ({ ...prev, fileUrl: `${API_URL}${data.fileUrl}` }));
+        const finalFileUrl = data.fileUrl?.startsWith('http') ? data.fileUrl : `${API_URL}${data.fileUrl}`;
+        setCertForm((prev) => ({ ...prev, fileUrl: finalFileUrl }));
         setUploadedFileName(data.fileName);
         setFeedback({ text: '¡Documento del certificado subido correctamente!', type: 'success' });
       } else {
         const data = await res.json();
         setFeedback({ text: data.error || 'Error al subir archivo', type: 'error' });
       }
-    } catch (err) {
-      setFeedback({ text: 'Error al subir archivo de certificado', type: 'error' });
+    } catch (err: any) {
+      setFeedback({ text: err.message || 'Error al subir archivo de certificado', type: 'error' });
     } finally {
       setUploadingFile(false);
     }

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Role, JobStatus } from '@prisma/client';
 import prisma from '../../config/prisma';
 import { authenticate, requireRole } from '../../middleware/auth';
+import storageService from '../storage/storage.service';
 
 const router = Router();
 
@@ -109,6 +110,31 @@ router.patch('/companies/:id/verify', async (req: Request, res: Response) => {
     return res.json({ message: `Empresa ${company.isVerified ? 'verificada' : 'desverificada'} con éxito`, company });
   } catch (error) {
     return res.status(500).json({ error: 'Error al actualizar verificación de empresa' });
+  }
+});
+
+// 6. Consultar estado del Guardián de Almacenamiento (Cloudflare R2 Cost Protection)
+router.get('/storage', async (_req: Request, res: Response) => {
+  try {
+    const guard = await storageService.getGuard();
+    return res.json(guard);
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al consultar guardián de almacenamiento' });
+  }
+});
+
+// 7. Modificar configuración del Guardián (Activar/Desactivar protección de costo, límites)
+router.patch('/storage', async (req: Request, res: Response) => {
+  try {
+    const { isGuardActive, maxStorageBytes, maxFileSizeBytes } = req.body;
+    const updated = await storageService.updateGuard({
+      isGuardActive,
+      maxStorageBytes,
+      maxFileSizeBytes,
+    });
+    return res.json({ message: 'Configuración de almacenamiento actualizada', guard: updated });
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al actualizar configuración de almacenamiento' });
   }
 });
 

@@ -5,32 +5,14 @@ import fs from 'fs';
 import { Role } from '@prisma/client';
 import prisma from '../../config/prisma';
 import { authenticate, requireRole } from '../../middleware/auth';
+import storageService from '../storage/storage.service';
 
 const router = Router();
 
-// Asegurar directorios de almacenamiento
-const uploadsBase = path.join(process.cwd(), 'uploads');
-const certsDir = path.join(uploadsBase, 'certificates');
-const avatarsDir = path.join(uploadsBase, 'avatars');
-
-if (!fs.existsSync(certsDir)) fs.mkdirSync(certsDir, { recursive: true });
-if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
-
-// Configuración de Multer para certificados
-const certStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, certsDir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, `cert-${uniqueSuffix}${ext}`);
-  },
-});
-
-const uploadCert = multer({
-  storage: certStorage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+// Configuración de Multer en memoria para subida a Cloudflare R2 con validación anti-costos
+const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB máximo inicial en memoria
   fileFilter: (_req, file, cb) => {
     const allowed = /pdf|jpg|jpeg|png|webp/i;
     const ext = path.extname(file.originalname).toLowerCase();
@@ -38,32 +20,6 @@ const uploadCert = multer({
       cb(null, true);
     } else {
       cb(new Error('Solo se permiten documentos en formato PDF o imágenes (JPG, PNG, WEBP)'));
-    }
-  },
-});
-
-// Configuración de Multer para fotos de perfil y portadas
-const imageStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, avatarsDir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, `img-${uniqueSuffix}${ext}`);
-  },
-});
-
-const uploadImage = multer({
-  storage: imageStorage,
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
-  fileFilter: (_req, file, cb) => {
-    const allowed = /jpg|jpeg|png|webp/i;
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.test(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Solo se permiten imágenes (JPG, PNG, WEBP)'));
     }
   },
 });
@@ -261,43 +217,54 @@ router.put('/profile', authenticate, async (req: Request, res: Response) => {
 router.post(
   '/upload-certificate',
   authenticate,
-  uploadCert.single('certificate'),
+  memoryUpload.single('certificate'),
   async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No se ha proporcionado ningún archivo' });
       }
 
-      const fileUrl = `/uploads/certificates/${req.file.filename}`;
+      const { url, size } = await storageService.uploadFile({
+        buffer: req.file.buffer,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        folder: 'certificates',
+      });
 
       return res.json({
         message: 'Certificado subido exitosamente',
-        fileUrl,
+        fileUrl: url,
         fileName: req.file.originalname,
-        fileSize: req.file.size,
+        fileSize: size,
       });
     } catch (error: any) {
       console.error('Error al subir certificado:', error);
-      return res.status(500).json({ error: error.message || 'Error al procesar el archivo' });
+      return res.status(400).json({ error: error.message || 'Error al procesar el archivo' });
     }
   }
 );
 
 // 5. Subida de imagen de avatar o portada
-router.post('/upload-image', authenticate, uploadImage.single('image'), async (req: Request, res: Response) => {
+router.post('/upload-image', authenticate, memoryUpload.single('image'), async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No se subió ninguna imagen' });
     }
 
-    const imageUrl = `/uploads/avatars/${req.file.filename}`;
+    const { url } = await storageService.uploadFile({
+      buffer: req.file.buffer,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      folder: 'avatars',
+    });
+
     return res.json({
       message: 'Imagen subida exitosamente',
-      imageUrl,
+      imageUrl: url,
     });
   } catch (error: any) {
     console.error('Error al subir imagen:', error);
-    return res.status(500).json({ error: error.message || 'Error al subir la imagen' });
+    return res.status(400).json({ error: error.message || 'Error al subir la imagen' });
   }
 });
 

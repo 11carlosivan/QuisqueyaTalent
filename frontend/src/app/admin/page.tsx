@@ -22,6 +22,9 @@ import {
   Check,
   Eye,
   ExternalLink,
+  Cloud,
+  HardDrive,
+  ShieldAlert,
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
@@ -32,8 +35,10 @@ export default function AdminDashboardPage() {
   const [adSlots, setAdSlots] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
+  const [storageGuard, setStorageGuard] = useState<any>(null);
+  const [savingStorage, setSavingStorage] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ads' | 'moderation' | 'companies'>('ads');
+  const [activeTab, setActiveTab] = useState<'ads' | 'moderation' | 'companies' | 'storage'>('ads');
 
   useEffect(() => {
     if (!isLoading && (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN'))) {
@@ -48,17 +53,48 @@ export default function AdminDashboardPage() {
         fetch(`${API_URL}/api/ads/admin/all`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
         fetch(`${API_URL}/api/admin/jobs`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
         fetch(`${API_URL}/api/admin/companies`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        fetch(`${API_URL}/api/admin/storage`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       ])
-        .then(([m, ads, j, c]) => {
+        .then(([m, ads, j, c, st]) => {
           setMetrics(m);
           if (Array.isArray(ads)) setAdSlots(ads);
           if (Array.isArray(j)) setJobs(j);
           if (Array.isArray(c)) setCompanies(c);
+          if (st && !st.error) setStorageGuard(st);
         })
         .catch(console.error)
         .finally(() => setLoading(false));
     }
   }, [user, token, isLoading]);
+
+  // Activar / Desactivar Guardián de Almacenamiento Anti-Cobros (Cloudflare R2)
+  const handleToggleStorageGuard = async (active: boolean) => {
+    try {
+      setSavingStorage(true);
+      const res = await fetch(`${API_URL}/api/admin/storage`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isGuardActive: active }),
+      });
+      const data = await res.json();
+      if (res.ok && data.guard) {
+        setStorageGuard(data.guard);
+        alert(
+          active
+            ? '🛡️ Protección Anti-Cobros ACTIVADA: Si se alcanza el 90% de los 10 GB gratuitos, se detendrán nuevas subidas.'
+            : '⚠️ Protección Anti-Cobros DESACTIVADA: El sistema permitirá subidas ilimitadas según la política de Cloudflare.'
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error al actualizar el estado de protección de almacenamiento');
+    } finally {
+      setSavingStorage(false);
+    }
+  };
 
   // Guardar configuración de un slot de AdSense
   const handleUpdateAdSlot = async (slot: any) => {
@@ -234,6 +270,19 @@ export default function AdminDashboardPage() {
             }`}
           >
             <Building2 className="w-4 h-4" /> Empresas & RNC ({companies.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('storage')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'storage'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Cloud className="w-4 h-4" /> Almacenamiento & Costo $0
+            {storageGuard?.isGuardActive && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            )}
           </button>
         </div>
 
@@ -466,6 +515,136 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* PESTAÑA 4: STORAGE & COST GUARD (CLOUDFLARE R2) */}
+        {activeTab === 'storage' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">☁️</span>
+                    <h2 className="text-lg font-bold text-[#001428] font-['Plus_Jakarta_Sans']">
+                      Guardián de Almacenamiento & Costo $0 (Cloudflare R2)
+                    </h2>
+                  </div>
+                  <p className="text-xs text-slate-500 max-w-xl">
+                    Monitorea el espacio consumido por fotos de perfil y certificados para evitar que alcances el límite mensual de 10 GB y garantizar que nunca se te aplique ningún cobro.
+                  </p>
+                </div>
+
+                {/* Switch de activación */}
+                <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                  <div className="text-right">
+                    <span className="block text-xs font-bold text-slate-900">
+                      {storageGuard?.isGuardActive ? 'Protección Activa' : 'Protección Desactivada'}
+                    </span>
+                    <span className="block text-[10px] text-slate-500">
+                      {storageGuard?.isGuardActive ? 'Detiene subidas al 90%' : 'Permite subidas sin tope'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={savingStorage}
+                    onClick={() => handleToggleStorageGuard(!storageGuard?.isGuardActive)}
+                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      storageGuard?.isGuardActive ? 'bg-emerald-500' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        storageGuard?.isGuardActive ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Barra de progreso de almacenamiento */}
+              {storageGuard && (
+                <div className="space-y-3 bg-slate-50 p-6 rounded-2xl border border-slate-200/80">
+                  <div className="flex justify-between items-center text-xs font-bold">
+                    <span className="text-slate-700 flex items-center gap-1.5">
+                      <HardDrive className="w-4 h-4 text-blue-600" />
+                      Espacio utilizado en Cloudflare R2
+                    </span>
+                    <span className="text-slate-900 font-mono">
+                      {(storageGuard.usedStorageBytes / (1024 * 1024)).toFixed(2)} MB / {(storageGuard.maxStorageBytes / (1024 * 1024 * 1024)).toFixed(1)} GB
+                    </span>
+                  </div>
+
+                  {/* Barra visual */}
+                  <div className="w-full bg-slate-200 rounded-full h-3.5 overflow-hidden p-0.5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        (storageGuard.usedStorageBytes / storageGuard.maxStorageBytes) > 0.85
+                          ? 'bg-rose-500'
+                          : (storageGuard.usedStorageBytes / storageGuard.maxStorageBytes) > 0.6
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                      style={{
+                        width: `${Math.max(
+                          2,
+                          Math.min(100, (storageGuard.usedStorageBytes / storageGuard.maxStorageBytes) * 100)
+                        )}%`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex justify-between items-center text-[11px] text-slate-500">
+                    <span>Límite gratuito total de Cloudflare: <strong>10.0 GB/mes</strong></span>
+                    <span>Tope de seguridad configurado: <strong>{(storageGuard.maxStorageBytes / (1024 * 1024 * 1024)).toFixed(1)} GB</strong></span>
+                  </div>
+                </div>
+              )}
+
+              {/* Estadísticas y detalles */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl border border-slate-200 bg-white">
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Archivos en la Nube
+                  </div>
+                  <div className="text-xl font-black text-slate-900">
+                    {storageGuard?.totalFilesUploaded || 0} archivos
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Avatares, certificados y logos</p>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-slate-200 bg-white">
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Límite por Archivo
+                  </div>
+                  <div className="text-xl font-black text-blue-600">
+                    {((storageGuard?.maxFileSizeBytes || 3145728) / (1024 * 1024)).toFixed(0)} MB máx.
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Evita archivos excesivamente pesados</p>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-slate-200 bg-white">
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Bucket de R2
+                  </div>
+                  <div className="text-sm font-black text-indigo-600 font-mono truncate">
+                    quisqueyatalent-storage
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Región automática con CDN global</p>
+                </div>
+              </div>
+
+              {/* Alerta de garantía costo cero */}
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-emerald-900 space-y-1">
+                  <strong className="block font-bold">Garantía de Costo $0 activa</strong>
+                  <p className="text-emerald-800 leading-relaxed">
+                    Mientras la opción <strong>Protección Activa</strong> esté encendida, el servidor rechazará automáticamente cualquier archivo que pudiera hacer que la cuenta sobrepase los 9.0 GB. De esta manera, tu tarjeta registrada en Cloudflare nunca recibirá un cobro imprevisto.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}

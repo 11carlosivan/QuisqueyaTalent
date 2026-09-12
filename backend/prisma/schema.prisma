@@ -379,3 +379,16 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+
+model StorageGuard {
+  id                 String   @id @default(uuid())
+  isGuardActive      Boolean  @default(true)
+  maxStorageBytes    Float    @default(9663676416) // 9.0 GB límite de seguridad (Cloudflare Free Tier es 10 GB)
+  usedStorageBytes   Float    @default(0)
+  maxFileSizeBytes   Int      @default(3145728)    // 3 MB por archivo
+  totalFilesUploaded Int      @default(0)
+  updatedAt          DateTime @updatedAt
+
+  @@map("storage_guard")
+}
+
