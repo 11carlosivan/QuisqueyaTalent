@@ -272,6 +272,16 @@ export default function PublicCandidateProfilePage() {
               {copied ? '¡Enlace copiado!' : 'Copiar Perfil'}
             </button>
 
+            {isOwner && (
+              <Link
+                href="/dashboard/candidato/perfil"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-sm"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                Editar Mi Perfil
+              </Link>
+            )}
+
             {email && !isOwner && (
               <a
                 href={`mailto:${email}?subject=Oportunidad Laboral vía Quisqueya Talent para ${candidateName}`}
@@ -337,6 +347,15 @@ export default function PublicCandidateProfilePage() {
                     <Phone className="w-4 h-4 text-slate-600" />
                     {profile.phone}
                   </a>
+                )}
+                {isOwner && (
+                  <Link
+                    href="/dashboard/candidato/perfil"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-sm"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Editar Mi Perfil
+                  </Link>
                 )}
                 <a
                   href={whatsappShareUrl}

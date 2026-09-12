@@ -155,9 +155,19 @@ export default function CompanyProfilePage() {
               Compartir en WhatsApp
             </a>
 
+            {isCompanyOwner && (
+              <Link
+                href="/dashboard/empresa/perfil"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-sm"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                Editar Perfil de Empresa
+              </Link>
+            )}
+
             <button
               onClick={handleCopyLink}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? '¡Copiado!' : 'Copiar Enlace'}
@@ -197,6 +207,15 @@ export default function CompanyProfilePage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
+                {isCompanyOwner && (
+                  <Link
+                    href="/dashboard/empresa/perfil"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-sm"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Editar Perfil de Empresa
+                  </Link>
+                )}
                 {company.websiteUrl && (
                   <a
                     href={company.websiteUrl}

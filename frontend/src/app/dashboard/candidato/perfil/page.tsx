@@ -37,6 +37,7 @@ import {
   Lock,
   Unlock,
   RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 
 const LinkedInIcon = ({ className = 'w-3.5 h-3.5' }: { className?: string }) => (
@@ -52,7 +53,7 @@ const GithubIcon = ({ className = 'w-3.5 h-3.5' }: { className?: string }) => (
 );
 
 export default function CandidateProfilePage() {
-  const { user, token, isLoading } = useAuth();
+  const { user, token, isLoading, logout } = useAuth();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -65,6 +66,10 @@ export default function CandidateProfilePage() {
   const [addExpOpen, setAddExpOpen] = useState(false);
   const [addEduOpen, setAddEduOpen] = useState(false);
   const [addCertOpen, setAddCertOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // Estados de formulario de edición de perfil
   const [profileForm, setProfileForm] = useState({
@@ -211,6 +216,37 @@ export default function CandidateProfilePage() {
       }
     } catch {
       setFeedback({ text: 'Error al cambiar visibilidad de perfil', type: 'error' });
+    }
+  };
+
+  // Eliminar Cuenta Definitivamente
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (deleteConfirmText.trim() !== 'ELIMINAR' || !token) return;
+
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/account`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ confirmation: 'ELIMINAR' }),
+      });
+
+      if (res.ok) {
+        logout();
+        router.push('/?account_deleted=1');
+      } else {
+        const data = await res.json();
+        setDeleteError(data.error || 'Error al eliminar la cuenta');
+      }
+    } catch {
+      setDeleteError('Error de conexión con el servidor');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1062,6 +1098,33 @@ export default function CandidateProfilePage() {
             </div>
           </div>
         )}
+
+        {/* ZONA DE PELIGRO: ELIMINACIÓN PERMANENTE DE CUENTA */}
+        <div className="bg-white rounded-3xl border border-rose-200/80 p-6 md:p-8 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-rose-700 font-bold text-base">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+                <span>Zona de Seguridad: Eliminar Cuenta Profesional</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
+                Al eliminar tu cuenta, se borrarán permanentemente tu perfil profesional, todos tus currículums creados, historial de postulaciones y archivos adjuntos conforme a la Ley No. 172-13 de Protección de Datos Personales de la República Dominicana. Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteConfirmText('');
+                setDeleteError('');
+                setDeleteModalOpen(true);
+              }}
+              className="px-4 py-2.5 text-xs font-bold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-300 rounded-xl transition cursor-pointer shrink-0 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-4 h-4" />
+              Eliminar mi Cuenta
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -1556,6 +1619,91 @@ export default function CandidateProfilePage() {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: CONFIRMACIÓN PARA ELIMINAR CUENTA */}
+      {/* ========================================================================= */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-rose-200 overflow-hidden">
+            <div className="p-6 border-b border-rose-100 bg-rose-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5 text-rose-700">
+                <div className="p-2 rounded-xl bg-rose-100 text-rose-600">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Eliminar Cuenta Profesional</h3>
+                  <p className="text-[11px] text-rose-600 font-medium">Acción destructiva e irreversible</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDeleteModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDeleteAccount} className="p-6 space-y-4">
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 leading-relaxed space-y-2">
+                <p className="font-bold flex items-center gap-1.5 text-rose-700">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  ¿Estás completamente seguro?
+                </p>
+                <p>
+                  Esta acción eliminará de forma permanente e irrecuperable:
+                </p>
+                <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] text-rose-800">
+                  <li>Tu perfil público y privado</li>
+                  <li>Todos tus currículums vitae y certificados subidos</li>
+                  <li>Tus postulaciones enviadas a empresas</li>
+                  <li>Tus alertas de empleo y empleos guardados</li>
+                </ul>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Escribe la palabra <span className="text-rose-600 font-mono tracking-wider">ELIMINAR</span> para confirmar:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ELIMINAR"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-rose-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500 text-sm font-mono text-center tracking-widest uppercase focus:outline-none"
+                />
+              </div>
+
+              {deleteError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700">
+                  {deleteError}
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteModalOpen(false)}
+                  disabled={isDeleting}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={deleteConfirmText.trim() !== 'ELIMINAR' || isDeleting}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-2 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Eliminar Mi Cuenta Definitivamente
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

@@ -26,6 +26,7 @@ import {
   UploadCloud,
   X,
   Users,
+  Trash2,
 } from 'lucide-react';
 
 const DOMINICAN_PROVINCES = [
@@ -80,13 +81,19 @@ const INDUSTRIES = [
 ];
 
 export default function CompanyProfileManagePage() {
-  const { user, token, isLoading } = useAuth();
+  const { user, token, isLoading, logout } = useAuth();
   const router = useRouter();
 
   const [company, setCompany] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Estados de eliminación de cuenta
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -104,6 +111,37 @@ export default function CompanyProfileManagePage() {
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // Eliminar Cuenta Corporativa Definitivamente
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (deleteConfirmText.trim() !== 'ELIMINAR' || !token) return;
+
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/account`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ confirmation: 'ELIMINAR' }),
+      });
+
+      if (res.ok) {
+        logout();
+        router.push('/?account_deleted=1');
+      } else {
+        const data = await res.json();
+        setDeleteError(data.error || 'Error al eliminar la cuenta');
+      }
+    } catch {
+      setDeleteError('Error de conexión con el servidor');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const fetchCompanyData = async (authToken: string) => {
     try {
@@ -596,7 +634,117 @@ export default function CompanyProfileManagePage() {
             </div>
           </div>
         </form>
+
+        {/* ZONA DE SEGURIDAD: ELIMINAR CUENTA CORPORATIVA */}
+        <div className="bg-white rounded-2xl border border-rose-200/80 p-6 shadow-xs mt-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-rose-700 font-bold text-base">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+                <span>Zona de Seguridad: Eliminar Cuenta de Empresa</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
+                Al eliminar tu cuenta de empresa, se borrarán permanentemente el perfil institucional, todas las vacantes publicadas, postulaciones recibidas y datos de reclutador conforme a la Ley No. 172-13 de Protección de Datos Personales de la República Dominicana. Esta acción no se puede revertir.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteConfirmText('');
+                setDeleteError('');
+                setDeleteModalOpen(true);
+              }}
+              className="px-4 py-2.5 text-xs font-bold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-300 rounded-xl transition cursor-pointer shrink-0 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-4 h-4" />
+              Eliminar Cuenta de Empresa
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* MODAL: CONFIRMAR ELIMINACIÓN DE CUENTA DE EMPRESA */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-rose-200 overflow-hidden">
+            <div className="p-6 border-b border-rose-100 bg-rose-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5 text-rose-700">
+                <div className="p-2 rounded-xl bg-rose-100 text-rose-600">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Eliminar Cuenta de Empresa</h3>
+                  <p className="text-[11px] text-rose-600 font-medium">Acción destructiva e irreversible</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDeleteAccount} className="p-6 space-y-4">
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 leading-relaxed space-y-2">
+                <p className="font-bold flex items-center gap-1.5 text-rose-700">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  ¿Estás completamente seguro?
+                </p>
+                <p>
+                  Esta acción eliminará de forma permanente e irrecuperable:
+                </p>
+                <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] text-rose-800">
+                  <li>El perfil corporativo de <strong>{company?.name || 'tu empresa'}</strong></li>
+                  <li>Todas las ofertas de empleo publicadas</li>
+                  <li>El historial de candidatos y postulaciones recibidas</li>
+                  <li>Tus accesos como reclutador</li>
+                </ul>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Escribe la palabra <span className="text-rose-600 font-mono tracking-wider">ELIMINAR</span> para confirmar:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ELIMINAR"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-rose-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500 text-sm font-mono text-center tracking-widest uppercase focus:outline-none"
+                />
+              </div>
+
+              {deleteError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700">
+                  {deleteError}
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteModalOpen(false)}
+                  disabled={isDeleting}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={deleteConfirmText.trim() !== 'ELIMINAR' || isDeleting}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-2 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Eliminar Empresa y Cuenta
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

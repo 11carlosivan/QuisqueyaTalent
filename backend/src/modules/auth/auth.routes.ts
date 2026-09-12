@@ -222,4 +222,49 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
   }
 });
 
+// Eliminar Cuenta Permanentemente (Derecho al Olvido / Ley 172-13)
+router.delete('/account', authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { confirmation } = req.body;
+
+    if (confirmation !== 'ELIMINAR') {
+      return res.status(400).json({ error: 'Debes confirmar la eliminación escribiendo la palabra ELIMINAR' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { companyMemberships: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Si el usuario es dueño de empresas y no hay más miembros, eliminar la empresa
+    if (user.role === Role.COMPANY_OWNER) {
+      for (const membership of user.companyMemberships) {
+        const otherMembersCount = await prisma.companyMember.count({
+          where: {
+            companyId: membership.companyId,
+            userId: { not: userId },
+          },
+        });
+
+        if (otherMembersCount === 0) {
+          await prisma.company.delete({ where: { id: membership.companyId } });
+        }
+      }
+    }
+
+    // Eliminar el usuario en cascada
+    await prisma.user.delete({ where: { id: userId } });
+
+    return res.json({ message: 'Cuenta y datos personales eliminados permanentemente' });
+  } catch (error: any) {
+    console.error('Error al eliminar cuenta:', error);
+    return res.status(500).json({ error: 'Error al procesar la eliminación de la cuenta' });
+  }
+});
+
 export default router;
