@@ -275,10 +275,25 @@ router.put('/:id', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RE
 });
 
 // 7. Cambiar estado de vacante (Pausar, Cerrar, Reactivar)
-router.patch('/:id/status', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
+router.patch('/:id/status', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECRUITER, Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { status } = req.body;
+    const companyId = req.user!.companyId;
+
+    const existing = await prisma.job.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Vacante no encontrada' });
+    }
+
+    if (req.user!.role !== Role.ADMIN && req.user!.role !== Role.SUPER_ADMIN && existing.companyId !== companyId) {
+      return res.status(403).json({ error: 'No tienes permiso para modificar esta vacante' });
+    }
+
+    const validStatuses = [JobStatus.PUBLISHED, JobStatus.CLOSED, JobStatus.PAUSED];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Estado de vacante no válido' });
+    }
 
     const job = await prisma.job.update({
       where: { id },
@@ -289,6 +304,13 @@ router.patch('/:id/status', authenticate, requireRole(Role.COMPANY_OWNER, Role.C
   } catch (error) {
     return res.status(500).json({ error: 'Error al modificar estado de la vacante' });
   }
+});
+
+// 8. Prohibición de eliminación física de vacantes (Protección de SEO y Google AdSense)
+router.delete('/:id', authenticate, async (_req: Request, res: Response) => {
+  return res.status(400).json({
+    error: 'Por motivos de optimización SEO, Google AdSense y retención de tráfico orgánico, las vacantes no se eliminan de la plataforma. Puedes marcar la vacante como "No disponible" (Cerrada) para desactivar nuevas postulaciones sin perder la indexación.',
+  });
 });
 
 // 8. Suscripción pública a alertas de empleo por correo

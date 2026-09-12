@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   ChevronRight,
   Loader2,
+  PowerOff,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function CompanyDashboardPage() {
@@ -27,6 +29,7 @@ export default function CompanyDashboardPage() {
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -46,6 +49,43 @@ export default function CompanyDashboardPage() {
         .finally(() => setLoading(false));
     }
   }, [user, token, isLoading]);
+
+  const handleToggleJobStatus = async (jobId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'PUBLISHED' ? 'CLOSED' : 'PUBLISHED';
+    const confirmMessage =
+      currentStatus === 'PUBLISHED'
+        ? '¿Deseas marcar esta vacante como NO DISPONIBLE?\n\nLa vacante dejará de recibir postulaciones de candidatos, pero su página web permanecerá activa en Quisqueya Talent para mantener el posicionamiento SEO, AdSense y el tráfico hacia tu empresa.'
+        : '¿Deseas reactivar esta vacante y volver a admitir postulaciones de candidatos?';
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setUpdatingJobId(jobId);
+    try {
+      const res = await fetch(`${API_URL}/api/jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'No se pudo actualizar el estado de la vacante');
+        return;
+      }
+
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j))
+      );
+    } catch (err) {
+      console.error(err);
+      alert('Error al modificar el estado de la vacante');
+    } finally {
+      setUpdatingJobId(null);
+    }
+  };
 
   if (isLoading || loading) {
     return (
@@ -178,6 +218,15 @@ export default function CompanyDashboardPage() {
             </div>
           </div>
 
+          {/* Aviso Educativo SEO */}
+          <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-4 text-xs text-blue-950 flex items-start gap-3 shadow-xs">
+            <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <span className="font-bold">Estrategia SEO y Tráfico Permanente: </span>
+              Para proteger el posicionamiento en Google y evitar penalizaciones de Google AdSense, las vacantes no se eliminan. Cuando finalice tu proceso de selección, márcala como <span className="font-bold">"No disponible"</span>. De este modo se cerrarán las solicitudes de candidatos pero mantendrás las visitas hacia tu marca.
+            </div>
+          </div>
+
           {jobs.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -194,62 +243,113 @@ export default function CompanyDashboardPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {jobs.map((job) => (
-                <div
-                  key={job.id}
-                  className="p-5 rounded-2xl border border-slate-200 hover:border-blue-300 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+              {jobs.map((job) => {
+                const isJobAvailable = job.status === 'PUBLISHED';
+                return (
+                  <div
+                    key={job.id}
+                    className={`p-5 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+                      isJobAvailable
+                        ? 'border-slate-200 hover:border-blue-300 bg-white'
+                        : 'border-slate-200/70 bg-slate-50/50 opacity-90'
+                    }`}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/empleos/${job.slug}`}
+                          className="font-extrabold text-base text-slate-900 hover:text-blue-600 transition"
+                        >
+                          {job.title}
+                        </Link>
+                        {isJobAvailable ? (
+                          <span className="bg-emerald-50 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Disponible
+                          </span>
+                        ) : (
+                          <span className="bg-slate-200/80 text-slate-600 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-slate-300 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                            No disponible
+                          </span>
+                        )}
+                        <span className="bg-slate-100 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-slate-200">
+                          {job.applyMethod === 'EMAIL' ? '✉️ Correo Directo' : '⚡ ATS Plataforma'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 flex flex-wrap items-center gap-3">
+                        <span>📍 {job.province}</span>
+                        <span>•</span>
+                        <span>💼 {job.category}</span>
+                        <span>•</span>
+                        <span>👥 {job._count?.applications || 0} candidatos postulados</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
+                      {/* Botón Cambiar Estado Disponible / No Disponible */}
+                      {isJobAvailable ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleJobStatus(job.id, job.status)}
+                          disabled={updatingJobId === job.id}
+                          className="bg-slate-100 hover:bg-amber-50 hover:text-amber-800 hover:border-amber-200 text-slate-600 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200 cursor-pointer disabled:opacity-50"
+                          title="Marcar como no disponible (conserva la URL pública para SEO)"
+                        >
+                          {updatingJobId === job.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <PowerOff className="w-3.5 h-3.5" />
+                          )}
+                          Marcar No Disponible
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleJobStatus(job.id, job.status)}
+                          disabled={updatingJobId === job.id}
+                          className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-emerald-200 cursor-pointer disabled:opacity-50"
+                          title="Reactivar recepción de postulaciones"
+                        >
+                          {updatingJobId === job.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          )}
+                          Reactivar Vacante
+                        </button>
+                      )}
+
+                      {/* Botón ATS Pipeline */}
+                      <Link
+                        href={`/dashboard/empresa/vacantes/${job.id}/ats`}
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-blue-200/80"
+                      >
+                        <Users className="w-4 h-4 text-blue-600" />
+                        Ver ATS ({job._count?.applications || 0})
+                      </Link>
+
+                      {/* Botón Redes Sociales con IA */}
+                      <Link
+                        href={`/dashboard/empresa/vacantes/${job.id}/social`}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200"
+                      >
+                        <Share2 className="w-4 h-4 text-slate-600" />
+                        Creativo Social IA
+                      </Link>
+
+                      {/* Ver puesto */}
                       <Link
                         href={`/empleos/${job.slug}`}
-                        className="font-extrabold text-base text-slate-900 hover:text-blue-600 transition"
+                        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                        title="Ver vacante pública"
                       >
-                        {job.title}
+                        <Eye className="w-4 h-4" />
                       </Link>
-                      <span className="bg-blue-50 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200">
-                        {job.status}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-500 flex flex-wrap items-center gap-3">
-                      <span>📍 {job.province}</span>
-                      <span>•</span>
-                      <span>💼 {job.category}</span>
-                      <span>•</span>
-                      <span>👥 {job._count?.applications || 0} candidatos postulados</span>
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
-                    {/* Botón ATS Pipeline */}
-                    <Link
-                      href={`/dashboard/empresa/vacantes/${job.id}/ats`}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-blue-200/80"
-                    >
-                      <Users className="w-4 h-4 text-blue-600" />
-                      Ver ATS ({job._count?.applications || 0})
-                    </Link>
-
-                    {/* Botón Redes Sociales con IA */}
-                    <Link
-                      href={`/dashboard/empresa/vacantes/${job.id}/social`}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200"
-                    >
-                      <Share2 className="w-4 h-4 text-slate-600" />
-                      Creativo Social IA
-                    </Link>
-
-                    {/* Ver puesto */}
-                    <Link
-                      href={`/empleos/${job.slug}`}
-                      className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
-                      title="Ver vacante pública"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

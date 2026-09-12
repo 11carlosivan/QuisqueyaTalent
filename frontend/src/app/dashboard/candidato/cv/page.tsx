@@ -1539,7 +1539,10 @@ export default function CVBuilderPage() {
   // Descargar CV en PDF directamente (sin abrir diálogo de impresión Ctrl+P)
   const handleDownloadPDF = async () => {
     const el = document.getElementById('cv-document-canvas');
-    if (!el) return;
+    if (!el) {
+      alert('No se encontró el lienzo del currículum para exportar.');
+      return;
+    }
     setDownloadingPDF(true);
     try {
       const html2canvas = (await import('html2canvas')).default;
@@ -1548,8 +1551,10 @@ export default function CVBuilderPage() {
       const canvas = await html2canvas(el, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
+        logging: false,
+        imageTimeout: 8000,
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.98);
@@ -1572,8 +1577,8 @@ export default function CVBuilderPage() {
         origin: { y: 0.85 },
       });
     } catch (e) {
-      console.error('Error generando PDF:', e);
-      alert('Ocurrió un error al generar el PDF. Por favor intenta de nuevo.');
+      console.warn('Inconveniente al rasterizar canvas, abriendo exportador de alta calidad del navegador:', e);
+      window.print();
     } finally {
       setDownloadingPDF(false);
     }

@@ -63,6 +63,11 @@ export const requireRole = (...roles: Role[]) => {
       return res.status(401).json({ error: 'Autenticación requerida' });
     }
 
+    // SUPER_ADMIN y ADMIN tienen acceso maestro a los módulos
+    if (req.user.role === Role.SUPER_ADMIN || req.user.role === Role.ADMIN) {
+      return next();
+    }
+
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Acceso denegado: permisos insuficientes' });
     }

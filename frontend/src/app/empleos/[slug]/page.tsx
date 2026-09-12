@@ -198,6 +198,8 @@ export default function JobDetailPage() {
     );
   }
 
+  const isAvailable = jobData.status === 'PUBLISHED';
+
   // Estructura JSON-LD para Google Jobs (SEO nativo del documento maestro)
   const jobSchema = {
     '@context': 'https://schema.org/',
@@ -205,6 +207,7 @@ export default function JobDetailPage() {
     title: jobData.title,
     description: jobData.description,
     datePosted: jobData.publishedAt,
+    ...(!isAvailable && { validThrough: jobData.updatedAt || new Date().toISOString() }),
     employmentType: jobData.jobType,
     hiringOrganization: {
       '@type': 'Organization',
@@ -301,6 +304,21 @@ export default function JobDetailPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        {/* Banner destacado si la vacante ya no está disponible */}
+        {!isAvailable && (
+          <div className="mb-6 bg-amber-50 border border-amber-300/80 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 shadow-xs">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-sm font-bold text-amber-950">
+                Esta vacante ya no se encuentra disponible
+              </h4>
+              <p className="text-xs text-amber-900/85 mt-0.5 leading-relaxed">
+                El proceso de selección para esta posición ha finalizado o la plaza ha sido cubierta. Conservamos esta publicación con fines informativos y de referencia.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* COLUMNA PRINCIPAL (8 COLS) */}
           <div className="lg:col-span-8 space-y-6">
@@ -359,8 +377,19 @@ export default function JobDetailPage() {
                 </div>
               </div>
 
-              {/* Tags de modalidad y tipo */}
+              {/* Tags de modalidad, disponibilidad y tipo */}
               <div className="flex flex-wrap gap-2 pt-6">
+                {!isAvailable ? (
+                  <span className="bg-slate-100 text-slate-700 font-bold text-xs px-3 py-1.5 rounded-xl border border-slate-300 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+                    Vacante no disponible
+                  </span>
+                ) : (
+                  <span className="bg-emerald-50 text-emerald-800 font-bold text-xs px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                    Vacante disponible
+                  </span>
+                )}
                 <span className="bg-blue-50 text-blue-800 font-bold text-xs px-3 py-1.5 rounded-xl border border-blue-100">
                   Modalidad:{' '}
                   {jobData.workplaceType === 'REMOTE'
@@ -451,11 +480,51 @@ export default function JobDetailPage() {
             {/* Caja de Postulación */}
             <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-md sticky top-24">
               <h3 className="text-lg font-extrabold text-[#001428] font-['Plus_Jakarta_Sans'] mb-2">
-                ¿Te interesa este puesto?
+                {isAvailable ? '¿Te interesa este puesto?' : 'Estado de la Vacante'}
               </h3>
 
-              {jobData.applyMethod === 'EMAIL' ? (
-                /* MÉTODO POR CORREO ELECTRÓNICO */
+              {!isAvailable ? (
+                /* VACANTE NO DISPONIBLE (CONSERVA LA PÁGINA PARA SEO Y ADSENSE) */
+                <div className="space-y-4">
+                  {jobData.applyMethod === 'EMAIL' ? (
+                    /* Caso Correo Electrónico: No mostrar el correo y mostrar aviso neutro */
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700 font-bold text-xs">
+                        <span className="p-1 bg-slate-400 text-white rounded-md">
+                          <Briefcase className="w-3.5 h-3.5" />
+                        </span>
+                        Recepción por correo cerrada
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        La empresa ya no está recibiendo currículums por correo electrónico para esta vacante porque el plazo de contratación ha concluido.
+                      </p>
+                    </div>
+                  ) : (
+                    /* Caso Plataforma (ATS): Aviso de cierre de postulaciones */
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700 font-bold text-xs">
+                        <span className="p-1 bg-slate-400 text-white rounded-md">
+                          <Briefcase className="w-3.5 h-3.5" />
+                        </span>
+                        Convocatoria finalizada
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Esta vacante ha sido cerrada en la plataforma y no admite nuevas postulaciones.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Botón en gris diciendo 'Vacante no disponible' */}
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full bg-slate-200 text-slate-500 font-extrabold py-3.5 px-4 rounded-xl text-sm border border-slate-300 cursor-not-allowed flex items-center justify-center gap-2 select-none shadow-none"
+                  >
+                    Vacante no disponible
+                  </button>
+                </div>
+              ) : jobData.applyMethod === 'EMAIL' ? (
+                /* MÉTODO POR CORREO ELECTRÓNICO (ACTIVO) */
                 <div className="space-y-4">
                   <div className="p-4 bg-indigo-50/80 border border-indigo-200 rounded-2xl space-y-2.5">
                     <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
@@ -492,7 +561,7 @@ export default function JobDetailPage() {
                   </button>
                 </div>
               ) : (
-                /* MÉTODO POR LA PLATAFORMA (ATS) */
+                /* MÉTODO POR LA PLATAFORMA (ATS ACTIVO) */
                 <>
                   <p className="text-xs text-slate-500 mb-6">
                     Postúlate gratis en menos de 1 minuto. Tu currículum será enviado directamente al equipo de selección.
@@ -597,7 +666,7 @@ export default function JobDetailPage() {
       </div>
 
       {/* MODAL DE POSTULACIÓN POR PLATAFORMA */}
-      {applyModalOpen && (
+      {applyModalOpen && isAvailable && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200">
             {/* Botón Cerrar */}

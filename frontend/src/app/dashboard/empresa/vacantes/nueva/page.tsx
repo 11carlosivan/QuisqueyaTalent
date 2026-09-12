@@ -21,10 +21,72 @@ import {
 } from 'lucide-react';
 
 export default function NewJobPage() {
-  const { user, token } = useAuth();
+  const { user, token, isLoading } = useAuth();
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
+
+  // Si no está autenticado, mostrar pantalla clara de inicio de sesión
+  if (!isLoading && !user) {
+    return (
+      <div className="min-h-screen bg-slate-50/60 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-4 shadow-sm">
+          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto">
+            <Building2 className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">Publicar Vacante Laboral</h2>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Para publicar empleos y gestionar postulantes necesitas una cuenta de empresa en Quisqueya Talent. Es 100% gratuito.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <Link
+              href="/auth/login"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-xs transition"
+            >
+              Iniciar Sesión
+            </Link>
+            <Link
+              href="/auth/register"
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-xs transition"
+            >
+              Registrar Empresa Gratis
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Si está autenticado como Candidato, guiarlo amigablemente
+  if (!isLoading && user && user.role === 'JOB_SEEKER') {
+    return (
+      <div className="min-h-screen bg-slate-50/60 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-4 shadow-sm">
+          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+            <Building2 className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">Cuenta de Candidato</h2>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Has iniciado sesión con tu perfil de <strong>Candidato</strong>. Para publicar vacantes, necesitas registrar una cuenta de <strong>Empresa</strong>.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <Link
+              href="/auth/register"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-xs transition"
+            >
+              Crear Cuenta de Empresa
+            </Link>
+            <Link
+              href="/"
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-xs transition"
+            >
+              Volver a Buscar Empleos
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Form states
   const [title, setTitle] = useState('');

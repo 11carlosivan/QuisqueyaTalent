@@ -16,6 +16,20 @@ router.post('/', authenticate, requireRole(Role.JOB_SEEKER), async (req: Request
       return res.status(400).json({ error: 'Debes especificar la vacante a la que deseas postularte' });
     }
 
+    // Verificar que la vacante exista y esté activa
+    const job = await prisma.job.findUnique({
+      where: { id: jobId },
+      select: { id: true, status: true, applyMethod: true },
+    });
+
+    if (!job) {
+      return res.status(404).json({ error: 'La vacante solicitada no existe o no se encuentra disponible' });
+    }
+
+    if (job.status !== 'PUBLISHED') {
+      return res.status(400).json({ error: 'Esta vacante ya no se encuentra disponible para recibir postulaciones.' });
+    }
+
     // Verificar si ya aplicó
     const existing = await prisma.application.findUnique({
       where: {
@@ -137,7 +151,7 @@ router.get('/job/:jobId', authenticate, requireRole(Role.COMPANY_OWNER, Role.COM
 
     const job = await prisma.job.findUnique({
       where: { id: jobId },
-      select: { companyId: true, title: true },
+      select: { companyId: true, title: true, status: true, applyMethod: true, slug: true },
     });
 
     if (!job || job.companyId !== companyId) {
@@ -170,7 +184,13 @@ router.get('/job/:jobId', authenticate, requireRole(Role.COMPANY_OWNER, Role.COM
       },
     });
 
-    return res.json({ jobTitle: job.title, applications });
+    return res.json({
+      jobTitle: job.title,
+      jobStatus: job.status,
+      applyMethod: job.applyMethod,
+      jobSlug: job.slug,
+      applications,
+    });
   } catch (error) {
     return res.status(500).json({ error: 'Error obteniendo candidatos del ATS' });
   }

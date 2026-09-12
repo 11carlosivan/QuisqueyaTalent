@@ -26,6 +26,7 @@ import {
   Send,
   ExternalLink,
   Eye,
+  PowerOff,
 } from 'lucide-react';
 
 export default function JobATSPage() {
@@ -35,6 +36,9 @@ export default function JobATSPage() {
   const jobId = params.id as string;
 
   const [jobTitle, setJobTitle] = useState('');
+  const [jobStatus, setJobStatus] = useState('PUBLISHED');
+  const [jobSlug, setJobSlug] = useState('');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<any>(null);
@@ -59,11 +63,47 @@ export default function JobATSPage() {
       if (data && data.applications) {
         setApplications(data.applications);
         setJobTitle(data.jobTitle || 'Vacante');
+        if (data.jobStatus) setJobStatus(data.jobStatus);
+        if (data.jobSlug) setJobSlug(data.jobSlug);
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleJobStatus = async () => {
+    const newStatus = jobStatus === 'PUBLISHED' ? 'CLOSED' : 'PUBLISHED';
+    const confirmMessage =
+      jobStatus === 'PUBLISHED'
+        ? '¿Deseas marcar esta vacante como NO DISPONIBLE?\n\nSe cerrarán las nuevas postulaciones en la plataforma, pero la página se mantendrá activa para proteger el SEO y visitas a tu empresa.'
+        : '¿Deseas reactivar esta vacante y volver a admitir postulaciones de candidatos?';
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch(`${API_URL}/api/jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'No se pudo actualizar el estado de la vacante');
+        return;
+      }
+      setJobStatus(newStatus);
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al actualizar la vacante');
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
@@ -142,24 +182,79 @@ export default function JobATSPage() {
             >
               <ArrowLeft className="w-4 h-4" /> Volver al panel de empresa
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-xl sm:text-2xl font-black text-[#001428] font-['Plus_Jakarta_Sans']">
                 Pipeline ATS: {jobTitle}
               </h1>
+              {jobStatus === 'PUBLISHED' ? (
+                <span className="bg-emerald-50 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Disponible
+                </span>
+              ) : (
+                <span className="bg-slate-200/80 text-slate-700 text-xs font-bold px-3 py-1 rounded-full border border-slate-300 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                  No disponible
+                </span>
+              )}
               <span className="bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-200">
                 {applications.length} Candidatos
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Toggle Estado Vacante */}
+            {jobStatus === 'PUBLISHED' ? (
+              <button
+                type="button"
+                onClick={handleToggleJobStatus}
+                disabled={updatingStatus}
+                className="bg-slate-100 hover:bg-amber-50 hover:text-amber-800 hover:border-amber-200 text-slate-600 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 border border-slate-200 transition cursor-pointer disabled:opacity-50"
+                title="Cerrar vacante conservando el enlace para SEO"
+              >
+                {updatingStatus ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <PowerOff className="w-3.5 h-3.5" />
+                )}
+                Marcar No Disponible
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleToggleJobStatus}
+                disabled={updatingStatus}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 border border-emerald-200 transition cursor-pointer disabled:opacity-50"
+                title="Reactivar recepción de postulaciones"
+              >
+                {updatingStatus ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                )}
+                Reactivar Vacante
+              </button>
+            )}
+
             <Link
               href={`/dashboard/empresa/vacantes/${jobId}/social`}
               className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition"
             >
               <Share2 className="w-4 h-4 text-slate-600" />
-              Generar Creativo Social con IA
+              Creativo Social IA
             </Link>
+
+            {jobSlug && (
+              <Link
+                href={`/empleos/${jobSlug}`}
+                target="_blank"
+                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition border border-slate-200"
+                title="Ver vacante pública"
+              >
+                <Eye className="w-4 h-4" />
+              </Link>
+            )}
           </div>
         </div>
 

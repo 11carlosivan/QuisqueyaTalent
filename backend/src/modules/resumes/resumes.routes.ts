@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { Role } from '@prisma/client';
 import prisma from '../../config/prisma';
-import { authenticate, requireRole } from '../../middleware/auth';
+import { authenticate } from '../../middleware/auth';
 
 const router = Router();
 
-// 1. Obtener CV del usuario autenticado (Candidato, Admin o Empresa en prueba)
-router.get('/my', authenticate, requireRole(Role.JOB_SEEKER, Role.ADMIN, Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
+// 1. Obtener CV del usuario autenticado
+router.get('/my', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     const requestedResumeId = req.query.resumeId as string | undefined;
@@ -66,7 +66,7 @@ router.get('/my', authenticate, requireRole(Role.JOB_SEEKER, Role.ADMIN, Role.CO
 });
 
 // 1.1 Establecer un CV como Principal (Visible para empresas y postulaciones)
-router.patch('/:id/set-primary', authenticate, requireRole(Role.JOB_SEEKER, Role.ADMIN, Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
+router.patch('/:id/set-primary', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     const id = req.params.id as string;
@@ -109,7 +109,7 @@ router.patch('/:id/set-primary', authenticate, requireRole(Role.JOB_SEEKER, Role
 });
 
 // 1.2 Crear una nueva versión de CV
-router.post('/new', authenticate, requireRole(Role.JOB_SEEKER, Role.ADMIN, Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
+router.post('/new', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     const { title = 'Nueva Versión de CV' } = req.body;
@@ -196,7 +196,7 @@ router.post('/new', authenticate, requireRole(Role.JOB_SEEKER, Role.ADMIN, Role.
 });
 
 // 1.3 Eliminar versión de CV (no se puede eliminar si es el principal o el único)
-router.delete('/:id', authenticate, requireRole(Role.JOB_SEEKER, Role.ADMIN, Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
+router.delete('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     const id = req.params.id as string;
@@ -227,7 +227,7 @@ router.delete('/:id', authenticate, requireRole(Role.JOB_SEEKER, Role.ADMIN, Rol
 });
 
 // 2. Guardar y actualizar CV completo
-router.put('/my', authenticate, requireRole(Role.JOB_SEEKER, Role.ADMIN, Role.COMPANY_OWNER, Role.COMPANY_RECRUITER), async (req: Request, res: Response) => {
+router.put('/my', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     const {
