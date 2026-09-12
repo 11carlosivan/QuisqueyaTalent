@@ -74,7 +74,7 @@ export default function CompanyProfilePage() {
                 {company.logoUrl ? (
                   <img src={company.logoUrl} alt={company.name} className="w-full h-full object-cover" />
                 ) : (
-                  company.name.slice(0, 2)
+                  <img src="/icono.svg" alt="Quisqueya Talent" className="w-12 h-12 object-contain" />
                 )}
               </div>
               <div>

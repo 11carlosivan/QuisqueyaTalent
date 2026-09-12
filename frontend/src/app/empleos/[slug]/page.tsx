@@ -210,7 +210,7 @@ export default function JobDetailPage() {
       '@type': 'Organization',
       name: jobData.company?.name,
       sameAs: jobData.company?.websiteUrl,
-      logo: jobData.company?.logoUrl,
+      logo: jobData.company?.logoUrl || 'https://www.quisqueyatalent.com.do/logo-quisqueya-talent.png',
     },
     jobLocation: {
       '@type': 'Place',
@@ -235,8 +235,26 @@ export default function JobDetailPage() {
     }),
   };
 
+  // OG Image: company logo or QT logo fallback
+  const ogImage = jobData.company?.logoUrl || 'https://www.quisqueyatalent.com.do/og-image.png';
+  const ogTitle = `${jobData.title} — ${jobData.company?.name} | Quisqueya Talent`;
+  const ogDescription = `Vacante en ${jobData.province}, República Dominicana. ${jobData.jobType} · ${jobData.category}. Postúlate en Quisqueya Talent.`;
+
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
+      {/* Dynamic meta tags for sharing */}
+      <title>{ogTitle}</title>
+      <meta name="description" content={ogDescription} />
+      <meta property="og:title" content={ogTitle} />
+      <meta property="og:description" content={ogDescription} />
+      <meta property="og:image" content={ogImage} />
+      <meta property="og:type" content="website" />
+      <meta property="og:site_name" content="Quisqueya Talent" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={ogTitle} />
+      <meta name="twitter:description" content={ogDescription} />
+      <meta name="twitter:image" content={ogImage} />
+
       {/* Inyección JSON-LD para Google Jobs */}
       <script
         type="application/ld+json"
@@ -283,7 +301,11 @@ export default function JobDetailPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      jobData.company?.name.slice(0, 2).toUpperCase()
+                      <img
+                        src="/icono.svg"
+                        alt="Quisqueya Talent"
+                        className="w-10 h-10 object-contain"
+                      />
                     )}
                   </div>
                   <div>
@@ -503,8 +525,20 @@ export default function JobDetailPage() {
                   Sobre la empresa
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-bold text-slate-700">
-                    {jobData.company?.name.slice(0, 2)}
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-700 shrink-0">
+                    {jobData.company?.logoUrl ? (
+                      <img
+                        src={jobData.company.logoUrl}
+                        alt={jobData.company.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src="/icono.svg"
+                        alt="Quisqueya Talent"
+                        className="w-7 h-7 object-contain"
+                      />
+                    )}
                   </div>
                   <div>
                     <div className="font-bold text-sm text-slate-800">{jobData.company?.name}</div>

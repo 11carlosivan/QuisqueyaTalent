@@ -4,8 +4,14 @@ import { AuthProvider } from '../lib/auth-context';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
+const SITE_URL = 'https://www.quisqueyatalent.com.do';
+
 export const metadata: Metadata = {
-  title: 'Quisqueya Talent | Bolsa de Empleo con IA para República Dominicana',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Quisqueya Talent | Bolsa de Empleo con IA para República Dominicana',
+    template: '%s | Quisqueya Talent',
+  },
   description:
     'Portal de empleo 100% gratuito para República Dominicana. Encuentra vacantes en Santo Domingo, Santiago y todo el país. Diseña tu CV profesional con asistencia de Inteligencia Artificial y compatibilidad ATS.',
   keywords: [
@@ -15,7 +21,50 @@ export const metadata: Metadata = {
     'Vacantes Santiago',
     'Call Center RD',
     'Creador de CV gratis',
+    'Quisqueya Talent',
+    'Empleo Dominicana',
   ],
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-48x48.png', sizes: '48x48', type: 'image/png' },
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'es_DO',
+    url: SITE_URL,
+    siteName: 'Quisqueya Talent',
+    title: 'Quisqueya Talent | Bolsa de Empleo con IA para República Dominicana',
+    description:
+      'Portal de empleo 100% gratuito. Encuentra vacantes, publica empleos y diseña tu CV profesional con IA. La plataforma #1 de empleo en República Dominicana.',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Quisqueya Talent - Bolsa de Empleo con IA para República Dominicana',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Quisqueya Talent | Empleo con IA en República Dominicana',
+    description:
+      'Portal de empleo 100% gratuito. Encuentra vacantes, publica empleos y diseña tu CV profesional con IA.',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

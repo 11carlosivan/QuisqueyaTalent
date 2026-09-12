@@ -50,7 +50,7 @@ export default function CompaniesDirectoryPage() {
                       {c.logoUrl ? (
                         <img src={c.logoUrl} alt={c.name} className="w-full h-full object-cover" />
                       ) : (
-                        c.name.slice(0, 2)
+                        <img src="/icono.svg" alt="Quisqueya Talent" className="w-9 h-9 object-contain" />
                       )}
                     </div>
                     <div>

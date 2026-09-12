@@ -348,7 +348,11 @@ function HomePageContent() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          job.company.name.slice(0, 2).toUpperCase()
+                          <img
+                            src="/icono.svg"
+                            alt="Quisqueya Talent"
+                            className="w-8 h-8 object-contain"
+                          />
                         )}
                       </div>
                       <div>

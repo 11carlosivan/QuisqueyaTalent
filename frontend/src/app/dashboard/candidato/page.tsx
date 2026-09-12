@@ -389,8 +389,20 @@ export default function CandidateDashboardPage() {
                     className="p-4 rounded-2xl border border-slate-200 hover:border-blue-300 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center font-bold text-slate-700 shrink-0">
-                        {app.job?.company?.name?.slice(0, 2) || 'RD'}
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-700 shrink-0">
+                        {app.job?.company?.logoUrl ? (
+                          <img
+                            src={app.job.company.logoUrl}
+                            alt={app.job.company.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            src="/icono.svg"
+                            alt="Quisqueya Talent"
+                            className="w-8 h-8 object-contain"
+                          />
+                        )}
                       </div>
                       <div>
                         <Link
