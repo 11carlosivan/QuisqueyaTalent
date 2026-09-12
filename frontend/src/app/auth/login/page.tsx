@@ -2,21 +2,34 @@
 
 import { API_URL } from '@/lib/api';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../lib/auth-context';
 import Logo from '../../../components/Logo';
-import { Mail, Lock, ArrowRight, Sparkles, Building2, UserCircle, Loader2 } from 'lucide-react';
+import SocialAuthButtons from '../../../components/SocialAuthButtons';
+import { Mail, Lock, ArrowRight, Building2, UserCircle, Loader2, AlertCircle } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, loginAsDemo } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      if (errorParam === 'Google_Auth_Cancelled' || errorParam === 'LinkedIn_Auth_Cancelled') {
+        setError('Inicio de sesión cancelado.');
+      } else {
+        setError(decodeURIComponent(errorParam));
+      }
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,50 +64,25 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-xl">
+    <div className="min-h-[85vh] flex items-center justify-center py-6 px-3 sm:py-12 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-6 bg-white p-5 sm:p-10 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl">
         <div className="text-center space-y-2">
-          <Logo className="justify-center" />
-          <h2 className="text-2xl font-extrabold text-[#001428] font-['Plus_Jakarta_Sans'] pt-2">
+          <Logo className="justify-center mx-auto" />
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[#001428] font-['Plus_Jakarta_Sans'] pt-1">
             Iniciar Sesión
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 max-w-xs mx-auto">
             Accede a tu panel de candidato, gestión de CV o cuenta empresarial.
           </p>
         </div>
 
-        {/* Botones de Demo Rápido */}
-        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-2 text-center">
-          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-            ⚡ Acceso rápido sin escribir
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                await loginAsDemo('candidato');
-                router.push('/dashboard/candidato');
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <UserCircle className="w-4 h-4" /> Candidato
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                await loginAsDemo('empresa');
-                router.push('/dashboard/empresa');
-              }}
-              className="bg-[#0F2942] hover:bg-[#1A3D5F] text-white text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Building2 className="w-4 h-4" /> Empresa
-            </button>
-          </div>
-        </div>
+        {/* Botones Sociales Google y LinkedIn con diseño Mobile First */}
+        <SocialAuthButtons mode="login" role="candidato" />
 
         {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl font-medium text-center">
-            {error}
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl font-medium flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="flex-1">{error}</span>
           </div>
         )}
 
@@ -104,14 +92,14 @@ export default function LoginPage() {
               Correo Electrónico
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="ejemplo@correo.com"
-                className="w-full text-sm pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full text-xs sm:text-sm pl-10 pr-3.5 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
               />
             </div>
           </div>
@@ -124,14 +112,14 @@ export default function LoginPage() {
               </span>
             </div>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full text-sm pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full text-xs sm:text-sm pl-10 pr-3.5 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
               />
             </div>
           </div>
@@ -139,7 +127,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#0051d5] hover:bg-[#0041ab] text-white font-extrabold py-3 px-4 rounded-xl text-sm transition-all shadow-md shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer mt-2"
+            className="w-full min-h-[46px] bg-[#0051d5] hover:bg-[#0041ab] active:bg-[#003893] text-white font-extrabold py-3 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-md shadow-blue-600/25 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -151,7 +139,36 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center pt-2">
+        {/* Botones de Demo Rápido */}
+        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-2 text-center">
+          <div className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            ⚡ Acceso rápido de prueba sin escribir
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await loginAsDemo('candidato');
+                router.push('/dashboard/candidato');
+              }}
+              className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[38px]"
+            >
+              <UserCircle className="w-3.5 h-3.5" /> Candidato
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                await loginAsDemo('empresa');
+                router.push('/dashboard/empresa');
+              }}
+              className="bg-[#0F2942] hover:bg-[#1A3D5F] active:bg-[#081827] text-white text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[38px]"
+            >
+              <Building2 className="w-3.5 h-3.5" /> Empresa
+            </button>
+          </div>
+        </div>
+
+        <div className="text-center pt-1">
           <p className="text-xs text-slate-500">
             ¿Aún no tienes cuenta?{' '}
             <Link href="/auth/register" className="font-bold text-blue-600 hover:underline">
@@ -161,5 +178,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[85vh] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

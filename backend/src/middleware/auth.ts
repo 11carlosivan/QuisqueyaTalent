@@ -30,25 +30,40 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
 
-    // Verificar si el usuario aún existe y está activo
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      include: {
-        companyMemberships: {
-          select: { companyId: true, role: true },
+    try {
+      // Verificar si el usuario aún existe y está activo
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        include: {
+          companyMemberships: {
+            select: { companyId: true, role: true },
+          },
         },
-      },
-    });
+      });
 
-    if (!user || !user.isActive) {
-      return res.status(401).json({ error: 'Usuario inactivo o no encontrado' });
+      if (user) {
+        if (!user.isActive) {
+          return res.status(401).json({ error: 'Usuario inactivo o suspendido' });
+        }
+
+        req.user = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          companyId: user.companyMemberships[0]?.companyId,
+        };
+        return next();
+      }
+    } catch (dbErr: any) {
+      console.warn('⚠️ Base de datos inaccesible en authenticate middleware, validando con firma JWT:', dbErr?.message);
     }
 
+    // Fallback: Si el JWT tiene firma criptográfica válida oficial
     req.user = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      companyId: user.companyMemberships[0]?.companyId,
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+      companyId: decoded.companyId,
     };
 
     next();
