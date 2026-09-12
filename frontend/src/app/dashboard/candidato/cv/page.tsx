@@ -981,6 +981,8 @@ export default function CVBuilderPage() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [documentPages, setDocumentPages] = useState(1);
+  const [isMultiPage, setIsMultiPage] = useState(true);
+  const [pageFilter, setPageFilter] = useState<'all' | '1' | '2'>('all');
 
   const isCurrentPrimary = allResumes.find((r) => r.id === currentResumeId)?.isDefault || false;
 
@@ -1570,24 +1572,24 @@ export default function CVBuilderPage() {
 
   // Descargar CV en PDF con soporte completo para múltiples páginas A4 (sin cortar información)
   const handleDownloadPDF = async () => {
-    const el = document.getElementById('cv-document-canvas');
-    if (!el) {
-      alert('No se encontró el lienzo del currículum para exportar.');
-      return;
-    }
     setDownloadingPDF(true);
+    const prevFilter = pageFilter;
     try {
+      if (pageFilter !== 'all') {
+        setPageFilter('all');
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+
       const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
 
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        logging: false,
-        imageTimeout: 8000,
-      });
+      const page1El = document.getElementById('cv-page-1') || document.getElementById('cv-document-canvas');
+      const page2El = isMultiPage ? document.getElementById('cv-page-2') : null;
+
+      if (!page1El) {
+        alert('No se encontró el lienzo del currículum para exportar.');
+        return;
+      }
 
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -1597,24 +1599,46 @@ export default function CVBuilderPage() {
 
       const pageWidth = 210; // Ancho A4 en mm
       const pageHeight = 297; // Alto A4 en mm
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      // 1. Renderizar Hoja 1
+      const canvas1 = await html2canvas(page1El, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+        imageTimeout: 8000,
+      });
 
-      let heightLeft = imgHeight;
-      let position = 0;
+      const imgData1 = canvas1.toDataURL('image/jpeg', 0.98);
+      const imgHeight1 = (canvas1.height * pageWidth) / canvas1.width;
+      pdf.addImage(imgData1, 'JPEG', 0, 0, pageWidth, Math.min(pageHeight, imgHeight1), undefined, 'FAST');
 
-      // Página 1
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= pageHeight;
+      // 2. Si es multi-página y existe Hoja 2, renderizar en su propia página A4 limpia
+      if (isMultiPage && page2El) {
+        const canvas2 = await html2canvas(page2El, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: '#ffffff',
+          logging: false,
+          imageTimeout: 8000,
+        });
 
-      // Páginas adicionales si el contenido supera 1 hoja (tolerancia de 2mm)
-      while (heightLeft > 2) {
-        position -= pageHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-        heightLeft -= pageHeight;
+        const imgData2 = canvas2.toDataURL('image/jpeg', 0.98);
+        const imgHeight2 = (canvas2.height * pageWidth) / canvas2.width;
+        pdf.addImage(imgData2, 'JPEG', 0, 0, pageWidth, Math.min(pageHeight, imgHeight2), undefined, 'FAST');
+      } else if (!isMultiPage && imgHeight1 > pageHeight + 2) {
+        // Fallback de rebanado si está en modo 1 hoja pero sobrepasa la altura
+        let heightLeft = imgHeight1 - pageHeight;
+        let position = -pageHeight;
+        while (heightLeft > 2) {
+          pdf.addPage();
+          pdf.addImage(imgData1, 'JPEG', 0, position, pageWidth, imgHeight1, undefined, 'FAST');
+          heightLeft -= pageHeight;
+          position -= pageHeight;
+        }
       }
 
       const fileName = `${personalData.firstName || 'Curriculum'}_${personalData.lastName || 'Vitae'}_QuisqueyaTalent.pdf`;
@@ -1626,9 +1650,12 @@ export default function CVBuilderPage() {
         origin: { y: 0.85 },
       });
     } catch (e) {
-      console.warn('Inconveniente al rasterizar canvas, abriendo exportador de alta calidad del navegador:', e);
+      console.warn('Inconveniente al exportar PDF:', e);
       window.print();
     } finally {
+      if (prevFilter !== 'all') {
+        setPageFilter(prevFilter);
+      }
       setDownloadingPDF(false);
     }
   };
@@ -1940,6 +1967,90 @@ export default function CVBuilderPage() {
         </h3>
         <div className="text-slate-600 leading-tight">
           {hobbies.join(' • ')}
+        </div>
+      </div>
+    );
+  };
+
+  // Renderizador oficial de la Hoja 2 (Página 2 de 2 en tamaño A4 idéntico)
+  const renderSecondPageSheet = () => {
+    return (
+      <div
+        id="cv-page-2"
+        className="w-full max-w-[595px] mx-auto bg-white rounded-xl shadow-2xl min-h-[842px] relative text-slate-900 transition-all duration-300 flex flex-col justify-between overflow-hidden"
+        style={{ fontFamily: activeFont }}
+      >
+        {/* Banda decorativa superior */}
+        <div className="w-full h-2 shrink-0" style={{ backgroundColor: activeColor }} />
+
+        <div className={`${spacingStyles.padding} space-y-6 flex-1 flex flex-col justify-between`}>
+          <div className="space-y-6">
+            {/* Encabezado Ejecutivo de Continuación de la Hoja 2 */}
+            <div className="border-b-2 pb-4 flex items-start justify-between gap-4" style={{ borderColor: `${activeColor}40` }}>
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none uppercase">
+                  {personalData.firstName} {personalData.lastName}
+                </h2>
+                {personalData.useAsTitle && personalData.targetJob && (
+                  <div className="text-xs font-bold uppercase tracking-wider mt-1" style={{ color: activeColor }}>
+                    {personalData.targetJob} — Hoja 2
+                  </div>
+                )}
+              </div>
+
+              <div className="text-[10px] text-slate-600 text-right space-y-0.5 shrink-0">
+                {personalData.email && <div>✉️ {personalData.email}</div>}
+                {personalData.phone && <div>📱 {personalData.phone}</div>}
+                {personalData.city && <div>📍 {personalData.city}</div>}
+              </div>
+            </div>
+
+            {/* Secciones de la Hoja 2 */}
+            <div className="space-y-6">
+              {/* 1. Certificaciones */}
+              {certificates.length > 0 && (
+                <div className="space-y-2">
+                  {renderCertificates()}
+                </div>
+              )}
+
+              {/* 2. Idiomas */}
+              {languages.length > 0 && (
+                <div className="space-y-2">
+                  {renderLanguages()}
+                </div>
+              )}
+
+              {/* 3. Intereses */}
+              {hobbies.length > 0 && (
+                <div className="space-y-2">
+                  {renderHobbies()}
+                </div>
+              )}
+
+              {/* 4. Referencias Laborales */}
+              {references.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  {renderReferences()}
+                </div>
+              )}
+
+              {/* Espacio informativo si no hay muchas secciones en hoja 2 */}
+              {certificates.length === 0 && languages.length === 0 && hobbies.length === 0 && references.length === 0 && (
+                <div className="p-8 border-2 border-dashed border-slate-200 rounded-2xl text-center text-slate-400 text-xs">
+                  Agrega cursos, certificaciones, idiomas, intereses o referencias para mostrarlos en esta segunda hoja.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Pie de página oficial de Hoja 2 */}
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-400">
+            <span>{personalData.firstName} {personalData.lastName} — Currículum Vitae</span>
+            <span className="font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+              Página 2 / 2
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -3925,66 +4036,82 @@ export default function CVBuilderPage() {
         {/* PANEL DERECHO: LIENZO A4 CON ESTILOS FIELES A CVWIZARD                    */}
         {/* ========================================================================= */}
         <div className="lg:col-span-6 bg-slate-200/80 p-4 sm:p-8 flex flex-col overflow-y-auto max-h-[calc(100vh-56px)] relative pb-28">
-          {/* BARRA DE ESTADO DE PÁGINAS A4 Y AJUSTE RÁPIDO */}
-          <div className="w-full max-w-[595px] mx-auto mb-3 flex items-center justify-between text-xs px-1">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white text-slate-700 border border-slate-200 shadow-2xs">
-                <FileText className="w-3.5 h-3.5 text-blue-600" />
-                {documentPages === 1 ? '1 Hoja A4' : `${documentPages} Hojas A4 (Multi-página)`}
-              </span>
-              {documentPages > 1 && (
-                <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md font-medium hidden sm:inline">
-                  Tu CV se descargará en {documentPages} páginas continuas sin cortes
-                </span>
+          {/* BARRA DE CONTROL DE PÁGINAS (TABS HOJA 1, HOJA 2, AMBAS) */}
+          <div className="w-full max-w-[595px] mx-auto mb-4 flex flex-wrap items-center justify-between gap-2 text-xs px-1">
+            <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setPageFilter('all')}
+                className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                  pageFilter === 'all' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Todas las Hojas ({isMultiPage ? '2' : '1'})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPageFilter('1')}
+                className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                  pageFilter === '1' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Hoja 1
+              </button>
+              {isMultiPage && (
+                <button
+                  type="button"
+                  onClick={() => setPageFilter('2')}
+                  className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                    pageFilter === '2' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Hoja 2
+                </button>
               )}
             </div>
 
-            {documentPages > 1 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveSpacing('compact');
-                  setFontSizeScale('S');
-                }}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition cursor-pointer shadow-2xs"
-                title="Ajusta espaciado y tipografía para intentar que entre en 1 sola hoja"
-              >
-                <Sparkles className="w-3 h-3 text-blue-600" />
-                Ajustar a 1 hoja
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {isMultiPage ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSpacing('compact');
+                    setFontSizeScale('S');
+                    setIsMultiPage(false);
+                    setPageFilter('all');
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
+                  title="Comprime espaciado para encajar todo el CV en 1 sola hoja"
+                >
+                  <Sparkles className="w-3 h-3 text-blue-600" />
+                  Ajustar todo a 1 hoja
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSpacing('normal');
+                    setFontSizeScale('M');
+                    setIsMultiPage(true);
+                    setPageFilter('all');
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
+                  title="Expande el contenido en 2 hojas completas"
+                >
+                  <Plus className="w-3 h-3 text-blue-600" />
+                  Dividir en 2 hojas
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* LIENZO A4 */}
-          <div
-            id="cv-document-canvas"
-            className="w-full max-w-[595px] mx-auto bg-white rounded-xl shadow-2xl min-h-[842px] relative text-slate-900 transition-all duration-300"
-            style={{ fontFamily: activeFont }}
-          >
-            {/* Marcadores Visuales de Salto de Página A4 (Ocultos al descargar PDF) */}
-            {documentPages >= 2 && (
-              <div
-                data-html2canvas-ignore="true"
-                className="absolute left-0 right-0 top-[842px] pointer-events-none z-30 flex items-center justify-center -translate-y-1/2"
-              >
-                <div className="w-full border-b-2 border-dashed border-blue-400/80" />
-                <span className="absolute bg-blue-600 text-white text-[9px] font-bold px-3 py-0.5 rounded-full shadow-md uppercase tracking-wider">
-                  Fin de Hoja 1 • Comienzo de Hoja 2 (Corte A4)
-                </span>
-              </div>
-            )}
-
-            {documentPages >= 3 && (
-              <div
-                data-html2canvas-ignore="true"
-                className="absolute left-0 right-0 top-[1684px] pointer-events-none z-30 flex items-center justify-center -translate-y-1/2"
-              >
-                <div className="w-full border-b-2 border-dashed border-blue-400/80" />
-                <span className="absolute bg-blue-600 text-white text-[9px] font-bold px-3 py-0.5 rounded-full shadow-md uppercase tracking-wider">
-                  Fin de Hoja 2 • Comienzo de Hoja 3 (Corte A4)
-                </span>
-              </div>
-            )}
+          {/* LIENZO A4 - HOJA 1 */}
+          {(pageFilter === 'all' || pageFilter === '1') && (
+            <div
+              id="cv-page-1"
+              className="w-full max-w-[595px] mx-auto bg-white rounded-xl shadow-2xl min-h-[842px] relative text-slate-900 transition-all duration-300 overflow-hidden"
+              style={{ fontFamily: activeFont }}
+            >
 
             {/* =================================================================== */}
             {/* 1. PLANTILLA: CRONOLÓGICA (CVWIZARD)                                */}
@@ -4040,18 +4167,34 @@ export default function CVBuilderPage() {
                   {renderExperiences(activeColor)}
                   {renderEducation(activeColor)}
 
-                  <div className="grid grid-cols-2 gap-6 pt-2 border-t border-slate-200">
-                    <div>
-                      {renderSkills(false)}
-                    </div>
-                    <div className="space-y-4">
-                      {renderLanguages()}
-                      {renderCertificates()}
-                      {renderHobbies()}
-                    </div>
-                  </div>
+                  {!isMultiPage ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-6 pt-2 border-t border-slate-200">
+                        <div>
+                          {renderSkills(false)}
+                        </div>
+                        <div className="space-y-4">
+                          {renderLanguages()}
+                          {renderCertificates()}
+                          {renderHobbies()}
+                        </div>
+                      </div>
 
-                  {renderReferences()}
+                      {renderReferences()}
+                    </>
+                  ) : (
+                    <>
+                      <div className="pt-2 border-t border-slate-200">
+                        {renderSkills(false)}
+                      </div>
+                      <div className="pt-4 mt-auto border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                        <span>{personalData.firstName} {personalData.lastName} — Currículum Vitae</span>
+                        <span className="font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                          Página 1 / 2
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -4722,6 +4865,24 @@ export default function CVBuilderPage() {
               </div>
             )}
           </div>
+          )}
+
+          {/* SEPARADOR VISUAL ENTRE HOJAS A4 */}
+          {isMultiPage && pageFilter === 'all' && (
+            <div className="w-full max-w-[595px] mx-auto my-8 flex items-center justify-center gap-3 select-none">
+              <div className="h-px bg-slate-300 flex-1" />
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-slate-700 text-xs font-bold rounded-full shadow-md border border-slate-200">
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                Página 2 de 2 • Hoja A4
+              </div>
+              <div className="h-px bg-slate-300 flex-1" />
+            </div>
+          )}
+
+          {/* LIENZO A4 - HOJA 2 (Página 2 de 2) */}
+          {isMultiPage && (pageFilter === 'all' || pageFilter === '2') && (
+            renderSecondPageSheet()
+          )}
 
           {/* =================================================================== */}
           {/* DRAWER HORIZONTAL DESLIZANTE DE PLANTILLAS (IDÉNTICO A CVWIZARD)    */}
