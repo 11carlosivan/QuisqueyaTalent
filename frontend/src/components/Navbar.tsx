@@ -100,11 +100,23 @@ export const Navbar: React.FC = () => {
             <Link
               href="/dashboard/candidato/perfil"
               className={`text-sm font-semibold transition flex items-center gap-1.5 ${
-                pathname.includes('/perfil') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'
+                pathname.includes('/candidato/perfil') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <User className="w-4 h-4 text-blue-600" />
               Mi Perfil
+            </Link>
+          )}
+
+          {(user?.role === 'COMPANY_OWNER' || user?.role === 'COMPANY_RECRUITER') && (
+            <Link
+              href="/dashboard/empresa/perfil"
+              className={`text-sm font-semibold transition flex items-center gap-1.5 ${
+                pathname.includes('/empresa/perfil') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Building2 className="w-4 h-4 text-blue-600" />
+              Perfil Corporativo
             </Link>
           )}
 
@@ -232,7 +244,16 @@ export const Navbar: React.FC = () => {
               onClick={() => setMobileMenuOpen(false)}
               className="block text-blue-600 font-bold py-2 px-3 rounded-lg bg-blue-50"
             >
-              Mi Perfil Profesional (LinkedIn)
+              Mi Perfil Profesional
+            </Link>
+          )}
+          {(user?.role === 'COMPANY_OWNER' || user?.role === 'COMPANY_RECRUITER') && (
+            <Link
+              href="/dashboard/empresa/perfil"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block text-blue-600 font-bold py-2 px-3 rounded-lg bg-blue-50"
+            >
+              🏢 Mi Perfil Corporativo
             </Link>
           )}
           <Link

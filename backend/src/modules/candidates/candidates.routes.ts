@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import jwt from 'jsonwebtoken';
 import { Role } from '@prisma/client';
 import prisma from '../../config/prisma';
 import { authenticate, requireRole } from '../../middleware/auth';
@@ -24,7 +25,7 @@ const memoryUpload = multer({
   },
 });
 
-// 1. Obtener perfil completo del candidato autenticado
+// 1. Obtener perfil completo del candidato autenticado (Vista Privada)
 router.get('/me', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
@@ -83,10 +84,65 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// 2. Obtener perfil público / vista de empresa de un candidato por ID
+// 2. Sincronizar datos entre Currículum y Perfil del Candidato
+router.post('/sync-from-resume', authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const defaultResume = await prisma.resume.findFirst({
+      where: { userId },
+      orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+      include: {
+        experiences: { orderBy: { sortOrder: 'asc' } },
+        education: { orderBy: { sortOrder: 'asc' } },
+        skills: true,
+      },
+    });
+
+    if (!defaultResume) {
+      return res.status(404).json({ error: 'No se encontró ningún currículum para sincronizar' });
+    }
+
+    const updateData: any = {};
+    if (defaultResume.summary) {
+      updateData.bio = defaultResume.summary;
+    }
+    if (defaultResume.title) {
+      updateData.headline = defaultResume.title;
+    }
+
+    const updatedProfile = await prisma.userProfile.update({
+      where: { userId },
+      data: updateData,
+    });
+
+    return res.json({
+      message: 'Perfil sincronizado correctamente con tu currículum',
+      profile: updatedProfile,
+      resume: defaultResume,
+    });
+  } catch (error) {
+    console.error('Error al sincronizar perfil con CV:', error);
+    return res.status(500).json({ error: 'Error al sincronizar con el currículum' });
+  }
+});
+
+// 3. Obtener perfil público de un candidato por ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+
+    // Detectar si el visitante es el dueño autenticado
+    let isOwner = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded: any = jwt.decode(token);
+        if (decoded && decoded.id === id) {
+          isOwner = true;
+        }
+      } catch {}
+    }
 
     const user: any = await prisma.user.findUnique({
       where: { id },
@@ -109,6 +165,25 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Candidato no encontrado' });
     }
 
+    // Si el perfil es privado y el visitante no es el dueño
+    if (user.profile && user.profile.isPublic === false && !isOwner) {
+      return res.json({
+        id: user.id,
+        isPrivate: true,
+        isOwner: false,
+        profile: {
+          firstName: user.profile.firstName,
+          lastName: user.profile.lastName ? `${user.profile.lastName.charAt(0)}.` : '',
+          headline: user.profile.headline,
+          avatarUrl: user.profile.avatarUrl,
+          coverUrl: user.profile.coverUrl,
+          province: user.profile.province,
+          isPublic: false,
+        },
+        resume: null,
+      });
+    }
+
     // Si no tiene CV por defecto, buscar el más reciente
     let primaryResume = user.resumes[0];
     if (!primaryResume) {
@@ -125,15 +200,15 @@ router.get('/:id', async (req: Request, res: Response) => {
       })) as any;
     }
 
-    // Datos públicos sanitizados para empresas y reclutadores
     return res.json({
       id: user.id,
-      email: user.email,
+      isPrivate: false,
+      isOwner,
       role: user.role,
       profile: user.profile,
       resume: primaryResume || {
         id: null,
-        title: 'Currículum sin completar',
+        title: 'Currículum',
         summary: user.profile?.bio || '',
         experiences: [],
         education: [],
@@ -148,7 +223,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// 3. Actualizar perfil de usuario (titular, bio, redes, ubicación, etc.)
+// 4. Actualizar perfil de usuario (titular, bio, redes, ubicación, etc.)
 router.put('/profile', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
