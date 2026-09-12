@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ApplicationStatus, Role } from '@prisma/client';
 import prisma from '../../config/prisma';
 import { authenticate, requireRole } from '../../middleware/auth';
+import emailService from '../email/email.service';
 
 const router = Router();
 
@@ -64,6 +65,31 @@ router.post('/', authenticate, requireRole(Role.JOB_SEEKER), async (req: Request
       where: { id: jobId },
       data: { applicationsCount: { increment: 1 } },
     });
+
+    // Enviar notificaciones por correo electrónico de forma asíncrona
+    prisma.application
+      .findUnique({
+        where: { id: application.id },
+        include: {
+          user: { include: { profile: true } },
+          job: { include: { company: true } },
+        },
+      })
+      .then((fullApp) => {
+        if (fullApp) {
+          const candidateName =
+            `${fullApp.user.profile?.firstName || ''} ${fullApp.user.profile?.lastName || ''}`.trim() ||
+            fullApp.user.email;
+          emailService.sendApplicationNotifications({
+            candidateEmail: fullApp.user.email,
+            candidateName,
+            jobTitle: fullApp.job.title,
+            companyName: fullApp.job.company.name,
+            companyEmail: fullApp.job.applyEmail || null,
+          });
+        }
+      })
+      .catch((err) => console.error('Error enviando emails de postulación:', err));
 
     return res.status(201).json({
       message: '¡Tu postulación ha sido enviada con éxito!',
@@ -176,6 +202,31 @@ router.patch('/:id/status', authenticate, requireRole(Role.COMPANY_OWNER, Role.C
         statusHistory: { orderBy: { createdAt: 'desc' } },
       },
     });
+
+    // Enviar notificación al candidato de actualización de etapa
+    prisma.application
+      .findUnique({
+        where: { id },
+        include: {
+          user: { include: { profile: true } },
+          job: { include: { company: true } },
+        },
+      })
+      .then((fullApp) => {
+        if (fullApp) {
+          const candidateName =
+            `${fullApp.user.profile?.firstName || ''} ${fullApp.user.profile?.lastName || ''}`.trim() ||
+            fullApp.user.email;
+          emailService.sendStatusUpdateNotification({
+            candidateEmail: fullApp.user.email,
+            candidateName,
+            jobTitle: fullApp.job.title,
+            companyName: fullApp.job.company.name,
+            newStatus: status,
+          });
+        }
+      })
+      .catch((err) => console.error('Error enviando email de estado:', err));
 
     return res.json({ message: 'Estado actualizado en el pipeline', application: updated });
   } catch (error) {
