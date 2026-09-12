@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '../lib/auth-context';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { ToastProvider } from '../components/Toast';
 
 const SITE_URL = 'https://www.quisqueyatalent.com.do';
 
@@ -122,9 +123,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col bg-[#f8f9ff] text-[#0b1c30] antialiased">
         <AuthProvider>
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <ToastProvider>
+            <Navbar />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

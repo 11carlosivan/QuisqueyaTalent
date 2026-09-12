@@ -1,6 +1,7 @@
 'use client';
 
 import { API_URL } from '@/lib/api';
+import { toast } from '@/components/Toast';
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -1702,6 +1703,9 @@ export default function CVBuilderPage() {
           spread: 60,
           origin: { y: 0.85 },
         });
+        toast.success('Currículum guardado exitosamente en tu cuenta.', 'Guardado');
+      } else {
+        toast.error('No se pudo guardar el currículum. Intenta nuevamente.', 'Error al guardar');
       }
     } catch (e) {
       console.error(e);
@@ -1727,7 +1731,7 @@ export default function CVBuilderPage() {
       const page2El = isMultiPage ? document.getElementById('cv-page-2') : null;
 
       if (!page1El) {
-        alert('No se encontró el lienzo del currículum para exportar.');
+        toast.error('No se encontró el lienzo del currículum para exportar.', 'Error al exportar');
         return;
       }
 
@@ -2331,7 +2335,7 @@ export default function CVBuilderPage() {
           <div className="hidden sm:flex items-center gap-1 border-r border-slate-200 pr-2 text-slate-400">
             <button
               type="button"
-              onClick={() => alert('Cambio deshecho.')}
+              onClick={() => toast.info('Acción deshecha correctamente.', 'Deshacer')}
               className="p-1.5 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
               title="Deshacer"
             >
@@ -2339,7 +2343,7 @@ export default function CVBuilderPage() {
             </button>
             <button
               type="button"
-              onClick={() => alert('Cambio rehecho.')}
+              onClick={() => toast.info('Acción rehecha correctamente.', 'Rehacer')}
               className="p-1.5 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
               title="Rehacer"
             >
@@ -2408,7 +2412,7 @@ export default function CVBuilderPage() {
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={() => alert('Función de importación de CV habilitada.')}
+              onClick={() => toast.info('Puedes arrastrar tu archivo PDF o importar de LinkedIn para auto-completar todo el CV.', 'Subir CV')}
               className="flex flex-col items-center justify-center gap-1.5 p-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-slate-700 text-[11px] font-semibold transition cursor-pointer text-center"
             >
               <Upload className="w-4 h-4 text-slate-500" />

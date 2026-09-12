@@ -1,6 +1,7 @@
 'use client';
 
 import { API_URL } from '@/lib/api';
+import { toast } from '@/components/Toast';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -42,7 +43,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!isLoading && (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN'))) {
-      alert('Esta área requiere permisos de Administrador. Se ha redirigido por seguridad.');
+      toast.warning('Esta área requiere permisos de Administrador. Se ha redirigido por seguridad.', 'Acceso Restringido');
       router.push('/auth/login');
       return;
     }
@@ -82,15 +83,15 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (res.ok && data.guard) {
         setStorageGuard(data.guard);
-        alert(
-          active
-            ? '🛡️ Protección Anti-Cobros ACTIVADA: Si se alcanza el 90% de los 10 GB gratuitos, se detendrán nuevas subidas.'
-            : '⚠️ Protección Anti-Cobros DESACTIVADA: El sistema permitirá subidas ilimitadas según la política de Cloudflare.'
-        );
+        if (active) {
+          toast.success('Protección Anti-Cobros ACTIVADA: Si se alcanza el 90% de los 10 GB gratuitos, se detendrán nuevas subidas.', 'Guardián R2');
+        } else {
+          toast.warning('Protección Anti-Cobros DESACTIVADA: El sistema permitirá subidas según la política de Cloudflare.', 'Guardián R2');
+        }
       }
     } catch (e) {
       console.error(e);
-      alert('Error al actualizar el estado de protección de almacenamiento');
+      toast.error('Error al actualizar el estado de protección de almacenamiento', 'Error R2');
     } finally {
       setSavingStorage(false);
     }
@@ -108,10 +109,11 @@ export default function AdminDashboardPage() {
         body: JSON.stringify(slot),
       });
       if (res.ok) {
-        alert(`Posición publicitaria [${slot.slotCode}] guardada con éxito.`);
+        toast.success(`Posición publicitaria [${slot.slotCode}] guardada con éxito.`, 'AdSense Guardado');
       }
     } catch (e) {
       console.error(e);
+      toast.error('No se pudo guardar la posición publicitaria.', 'Error');
     }
   };
 
@@ -127,11 +129,12 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({ status, featured }),
       });
       if (res.ok) {
-        alert('Estado de la vacante actualizado.');
+        toast.success('Estado de la vacante actualizado correctamente.', 'Moderación');
         setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, status, ...(featured !== undefined && { featured }) } : j)));
       }
     } catch (e) {
       console.error(e);
+      toast.error('No se pudo actualizar el estado de la vacante.', 'Error de Moderación');
     }
   };
 

@@ -3,6 +3,7 @@
 import { API_URL } from '@/lib/api';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { toast } from '../components/Toast';
 
 export interface User {
   id: string;
@@ -89,11 +90,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await res.json();
       if (res.ok && data.token) {
         login(data.token, data.user);
+        toast.success(`Has iniciado sesión con el rol de ${role.toUpperCase()}.`, 'Modo Demo Activo');
       } else {
-        alert(data.error || 'Error al iniciar sesión demo');
+        toast.error(data.error || 'Error al iniciar sesión demo', 'Acceso denegado');
       }
     } catch (err) {
       console.error('Error conectando con API:', err);
+      toast.error('No se pudo conectar con el servidor de autenticación.', 'Error de Red');
     }
   };
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { API_URL } from '@/lib/api';
+import { toast } from '@/components/Toast';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -52,39 +53,49 @@ export default function CompanyDashboardPage() {
 
   const handleToggleJobStatus = async (jobId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'PUBLISHED' ? 'CLOSED' : 'PUBLISHED';
-    const confirmMessage =
-      currentStatus === 'PUBLISHED'
-        ? '¿Deseas marcar esta vacante como NO DISPONIBLE?\n\nLa vacante dejará de recibir postulaciones de candidatos, pero su página web permanecerá activa en Quisqueya Talent para mantener el posicionamiento SEO, AdSense y el tráfico hacia tu empresa.'
-        : '¿Deseas reactivar esta vacante y volver a admitir postulaciones de candidatos?';
+    toast.confirm({
+      title: currentStatus === 'PUBLISHED' ? '¿Marcar como No Disponible?' : '¿Reactivar Vacante?',
+      message:
+        currentStatus === 'PUBLISHED'
+          ? 'La vacante dejará de recibir postulaciones de candidatos, pero su página permanecerá activa para mantener el posicionamiento SEO y AdSense.'
+          : 'La vacante volverá a admitir postulaciones de candidatos inmediatamente.',
+      confirmText: currentStatus === 'PUBLISHED' ? 'Marcar No Disponible' : 'Reactivar Vacante',
+      type: currentStatus === 'PUBLISHED' ? 'warning' : 'info',
+      onConfirm: async () => {
+        setUpdatingJobId(jobId);
+        try {
+          const res = await fetch(`${API_URL}/api/jobs/${jobId}/status`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ status: newStatus }),
+          });
 
-    if (!window.confirm(confirmMessage)) return;
+          const data = await res.json();
+          if (!res.ok) {
+            toast.error(data.error || 'No se pudo actualizar el estado de la vacante', 'Error');
+            return;
+          }
 
-    setUpdatingJobId(jobId);
-    try {
-      const res = await fetch(`${API_URL}/api/jobs/${jobId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'No se pudo actualizar el estado de la vacante');
-        return;
-      }
-
-      setJobs((prev) =>
-        prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j))
-      );
-    } catch (err) {
-      console.error(err);
-      alert('Error al modificar el estado de la vacante');
-    } finally {
-      setUpdatingJobId(null);
-    }
+          setJobs((prev) =>
+            prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j))
+          );
+          toast.success(
+            newStatus === 'CLOSED'
+              ? 'La vacante se ha marcado como no disponible.'
+              : 'La vacante se ha reactivado con éxito.',
+            'Estado Actualizado'
+          );
+        } catch (err) {
+          console.error(err);
+          toast.error('Error al modificar el estado de la vacante', 'Error de Red');
+        } finally {
+          setUpdatingJobId(null);
+        }
+      },
+    });
   };
 
   if (isLoading || loading) {

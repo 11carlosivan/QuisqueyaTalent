@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { API_URL } from '@/lib/api';
 import { Bell, Mail, CheckCircle2, Loader2, Sparkles, MapPin } from 'lucide-react';
+import { toast } from './Toast';
 
 const PROVINCES_RD = [
   'Todas las provincias',
@@ -40,7 +41,7 @@ export const JobAlertBanner: React.FC<{ compact?: boolean }> = ({ compact = fals
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
-      alert('Por favor ingresa un correo electrónico válido');
+      toast.warning('Por favor ingresa un correo electrónico válido', 'Correo Requerido');
       return;
     }
 
@@ -62,12 +63,13 @@ export const JobAlertBanner: React.FC<{ compact?: boolean }> = ({ compact = fals
         setSuccess(true);
         setMessage(data.message || '¡Te has suscrito con éxito!');
         setEmail('');
+        toast.success(data.message || '¡Alerta de empleo activada con éxito!', 'Suscripción Lista');
       } else {
-        alert(data.error || 'Error al suscribirte');
+        toast.error(data.error || 'Error al suscribirte a las alertas', 'No se pudo suscribir');
       }
     } catch (err) {
       console.error(err);
-      alert('Error de conexión al procesar tu solicitud');
+      toast.error('Error de conexión al procesar tu solicitud. Intenta nuevamente.', 'Error de Conexión');
     } finally {
       setLoading(false);
     }
