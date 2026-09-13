@@ -54,7 +54,8 @@ export default function SocialAuthButtons({
         </span>
       </a>
 
-      {/* Botón LinkedIn */}
+      {/* Botón LinkedIn — Se activará cuando se configuren las credenciales de LinkedIn Developer */}
+      {/* 
       <a
         href={linkedInHref}
         id="btn-social-linkedin"
@@ -70,6 +71,7 @@ export default function SocialAuthButtons({
           {actionText} con <strong className="font-extrabold text-white">LinkedIn</strong>
         </span>
       </a>
+      */}
 
       {/* Separador Visual con texto */}
       <div className="relative flex items-center py-2">
