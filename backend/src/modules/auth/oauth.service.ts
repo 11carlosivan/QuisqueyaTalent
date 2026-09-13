@@ -15,6 +15,7 @@ export interface OAuthUserInfo {
   lastName: string;
   avatarUrl?: string;
   role?: string;
+  linkedinUrl?: string;
 }
 
 export class OAuthService {
@@ -113,7 +114,7 @@ export class OAuthService {
       return `${this.getBackendUrl()}/api/auth/oauth-mock?provider=linkedin&role=${encodeURIComponent(role)}`;
     }
 
-    const redirectUri = encodeURIComponent(`${this.getBackendUrl()}/api/auth/linkedin/callback`);
+    const redirectUri = encodeURIComponent(process.env.LINKEDIN_REDIRECT_URI || `${this.getBackendUrl()}/api/auth/linkedin/callback`);
     const scope = encodeURIComponent('openid profile email');
     const state = encodeURIComponent(JSON.stringify({ role }));
 
@@ -123,7 +124,7 @@ export class OAuthService {
   static async handleLinkedInCallback(code: string, stateStr?: string): Promise<{ token: string; role: Role; redirectUrl: string }> {
     const clientId = process.env.LINKEDIN_CLIENT_ID;
     const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
-    const redirectUri = `${this.getBackendUrl()}/api/auth/linkedin/callback`;
+    const redirectUri = process.env.LINKEDIN_REDIRECT_URI || `${this.getBackendUrl()}/api/auth/linkedin/callback`;
 
     let role = 'candidato';
     if (stateStr) {
@@ -155,7 +156,7 @@ export class OAuthService {
     const tokenData = (await tokenRes.json()) as any;
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error('Error LinkedIn Token Exchange:', tokenData);
-      throw new Error(tokenData.error_description || 'Error al autorizar con LinkedIn');
+      throw new Error(tokenData.error_description || tokenData.error || 'Error al autorizar con LinkedIn');
     }
 
     // Obtener información del usuario desde LinkedIn UserInfo API (OpenID Connect)
@@ -175,6 +176,7 @@ export class OAuthService {
       firstName: userInfo.given_name || userInfo.name?.split(' ')[0] || 'Profesional',
       lastName: userInfo.family_name || userInfo.name?.split(' ').slice(1).join(' ') || 'LinkedIn',
       avatarUrl: userInfo.picture || undefined,
+      linkedinUrl: userInfo.vanity_name ? `https://www.linkedin.com/in/${userInfo.vanity_name}` : undefined,
       role,
     });
   }
@@ -183,7 +185,7 @@ export class OAuthService {
   // 3. SINCRONIZACIÓN Y CREACIÓN DE USUARIOS SOCIALES (PRISMA DATABASE)
   // =========================================================================
   static async findOrCreateSocialUser(info: OAuthUserInfo): Promise<{ token: string; role: Role; redirectUrl: string }> {
-    const { email, firstName, lastName, avatarUrl, role: requestedRole } = info;
+    const { email, firstName, lastName, avatarUrl, role: requestedRole, linkedinUrl } = info;
     const userRole = requestedRole === 'empresa' ? Role.COMPANY_OWNER : Role.JOB_SEEKER;
 
     let user: any = null;
@@ -210,6 +212,7 @@ export class OAuthService {
                 firstName,
                 lastName,
                 avatarUrl: avatarUrl || null,
+                linkedinUrl: linkedinUrl || null,
                 province: 'Santo Domingo',
               },
             },
@@ -249,12 +252,20 @@ export class OAuthService {
             },
           });
         }
-      } else if (avatarUrl && (!user.profile?.avatarUrl || user.profile.avatarUrl.includes('placeholder'))) {
-        // Actualizar foto de perfil si no tenía
-        await prisma.userProfile.update({
-          where: { userId: user.id },
-          data: { avatarUrl },
-        });
+      } else {
+        const updateData: any = {};
+        if (avatarUrl && (!user.profile?.avatarUrl || user.profile.avatarUrl.includes('placeholder'))) {
+          updateData.avatarUrl = avatarUrl;
+        }
+        if (linkedinUrl && !user.profile?.linkedinUrl) {
+          updateData.linkedinUrl = linkedinUrl;
+        }
+        if (Object.keys(updateData).length > 0 && user.profile) {
+          await prisma.userProfile.update({
+            where: { userId: user.id },
+            data: updateData,
+          });
+        }
       }
     } catch (dbError: any) {
       console.warn('⚠️ Base de datos local no disponible, generando sesión social simulada:', dbError.message);

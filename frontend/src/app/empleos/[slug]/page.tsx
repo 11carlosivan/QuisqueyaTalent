@@ -34,7 +34,7 @@ import {
 export default function JobDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, token, loginAsDemo, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const slug = params.slug as string;
 
   const [jobData, setJobData] = useState<any>(null);
@@ -753,23 +753,6 @@ export default function JobDetailPage() {
                     Crear cuenta gratis de Candidato
                   </Link>
                 </div>
-
-                {/* Acceso Rápido Demo */}
-                <div className="pt-3 border-t border-slate-100 text-center">
-                  <div className="text-[11px] text-slate-400 font-medium mb-2">
-                    ¿Deseas probar la postulación inmediatamente?
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await loginAsDemo('candidato');
-                    }}
-                    className="w-full bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
-                  >
-                    <Sparkles className="w-4 h-4 text-blue-600" />
-                    ⚡ Continuar como Candidato Demo (Carlos Rosario)
-                  </button>
-                </div>
               </div>
             ) : user.role !== 'JOB_SEEKER' ? (
               /* CASO 3: ROL NO VÁLIDO (EMPRESA O ADMINISTRADOR) */
@@ -802,16 +785,6 @@ export default function JobDetailPage() {
                 </div>
 
                 <div className="space-y-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await loginAsDemo('candidato');
-                    }}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-md shadow-blue-600/20 cursor-pointer"
-                  >
-                    <UserCheck className="w-4 h-4" />
-                    ⚡ Cambiar a Cuenta de Candidato (Carlos Rosario)
-                  </button>
 
                   <button
                     type="button"

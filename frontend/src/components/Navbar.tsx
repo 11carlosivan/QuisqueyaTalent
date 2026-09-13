@@ -10,7 +10,7 @@ import { Sparkles, Briefcase, FileText, Building2, UserCircle, LogOut, ShieldChe
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, loginAsDemo } = useAuth();
+  const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const getDashboardHref = () => {
@@ -20,52 +20,8 @@ export const Navbar: React.FC = () => {
     return '/dashboard/empresa';
   };
 
-  const handleDemoClick = async (role: 'candidato' | 'empresa' | 'admin') => {
-    await loginAsDemo(role);
-    if (role === 'candidato') {
-      router.push('/dashboard/candidato');
-    } else if (role === 'empresa') {
-      router.push('/dashboard/empresa');
-    } else if (role === 'admin') {
-      router.push('/admin');
-    }
-  };
-
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-      {/* Demo Banner Superior */}
-      <div className="bg-gradient-to-r from-sky-900 via-blue-900 to-indigo-950 text-white text-xs py-1.5 px-4">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="bg-sky-400/20 text-sky-300 font-semibold px-2 py-0.5 rounded text-[11px] border border-sky-400/30">
-              Demo Rápido
-            </span>
-            <span className="hidden sm:inline text-blue-100">
-              Prueba la plataforma cambiando de rol al instante:
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleDemoClick('candidato')}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-0.5 rounded text-[11px] font-medium transition cursor-pointer"
-            >
-              👤 Candidato (Carlos)
-            </button>
-            <button
-              onClick={() => handleDemoClick('empresa')}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-0.5 rounded text-[11px] font-medium transition cursor-pointer"
-            >
-              🏢 Empresa (Altice)
-            </button>
-            <button
-              onClick={() => handleDemoClick('admin')}
-              className="bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-0.5 rounded text-[11px] font-medium transition cursor-pointer"
-            >
-              🛡️ Super Admin
-            </button>
-          </div>
-        </div>
-      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
         {/* Logo Oficial usando logo.svg / icono.svg */}

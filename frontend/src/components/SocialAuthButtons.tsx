@@ -54,11 +54,11 @@ export default function SocialAuthButtons({
         </span>
       </a>
 
-      {/* Botón LinkedIn — Se activará cuando se configuren las credenciales de LinkedIn Developer */}
-      {/* 
+      {/* Botón LinkedIn */}
       <a
         href={linkedInHref}
         id="btn-social-linkedin"
+        aria-label={`${actionText} con LinkedIn`}
         className="group relative flex items-center justify-center gap-3 w-full min-h-[46px] sm:min-h-[48px] px-4 py-3 bg-[#0A66C2] hover:bg-[#004182] active:bg-[#003366] text-white rounded-2xl font-bold text-xs sm:text-sm shadow-xs hover:shadow-md transition-all duration-150 active:scale-[0.98] cursor-pointer"
       >
         <svg
@@ -71,7 +71,6 @@ export default function SocialAuthButtons({
           {actionText} con <strong className="font-extrabold text-white">LinkedIn</strong>
         </span>
       </a>
-      */}
 
       {/* Separador Visual con texto */}
       <div className="relative flex items-center py-2">

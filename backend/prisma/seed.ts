@@ -26,20 +26,21 @@ async function main() {
   await prisma.userProfile.deleteMany({});
   await prisma.user.deleteMany({});
 
-  const passwordHash = await bcrypt.hash('password123', 10);
+  const adminPasswordHash = await bcrypt.hash('11712Ivandi', 10);
+  const generalPasswordHash = await bcrypt.hash('password123', 10);
 
-  // 1. Usuarios Demo
+  // 1. Super Administrador Principal
   const adminUser = await prisma.user.create({
     data: {
-      email: 'admin@quisqueyatalent.com',
-      passwordHash,
+      email: 'carlosivancastillofeliz@gmail.com',
+      passwordHash: adminPasswordHash,
       role: Role.SUPER_ADMIN,
       isEmailVerified: true,
       profile: {
         create: {
-          firstName: 'Super',
-          lastName: 'Admin',
-          headline: 'Director de Operaciones Quisqueya Talent',
+          firstName: 'Carlos',
+          lastName: 'Castillo',
+          headline: 'Fundador & Super Administrador Quisqueya Talent',
           province: 'Distrito Nacional',
           city: 'Santo Domingo',
         },
@@ -50,7 +51,7 @@ async function main() {
   const recruiterUser = await prisma.user.create({
     data: {
       email: 'reclutador@altice.com.do',
-      passwordHash,
+      passwordHash: generalPasswordHash,
       role: Role.COMPANY_OWNER,
       isEmailVerified: true,
       profile: {
@@ -69,7 +70,7 @@ async function main() {
   const candidateUser = await prisma.user.create({
     data: {
       email: 'candidato@quisqueyatalent.com',
-      passwordHash,
+      passwordHash: generalPasswordHash,
       role: Role.JOB_SEEKER,
       isEmailVerified: true,
       profile: {

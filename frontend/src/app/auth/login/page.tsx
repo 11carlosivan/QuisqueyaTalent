@@ -8,12 +8,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../lib/auth-context';
 import Logo from '../../../components/Logo';
 import SocialAuthButtons from '../../../components/SocialAuthButtons';
-import { Mail, Lock, ArrowRight, Building2, UserCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, loginAsDemo } = useAuth();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -138,35 +138,6 @@ function LoginContent() {
             )}
           </button>
         </form>
-
-        {/* Botones de Demo Rápido */}
-        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-2 text-center">
-          <div className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-            ⚡ Acceso rápido de prueba sin escribir
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                await loginAsDemo('candidato');
-                router.push('/dashboard/candidato');
-              }}
-              className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[38px]"
-            >
-              <UserCircle className="w-3.5 h-3.5" /> Candidato
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                await loginAsDemo('empresa');
-                router.push('/dashboard/empresa');
-              }}
-              className="bg-[#0F2942] hover:bg-[#1A3D5F] active:bg-[#081827] text-white text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[38px]"
-            >
-              <Building2 className="w-3.5 h-3.5" /> Empresa
-            </button>
-          </div>
-        </div>
 
         <div className="text-center pt-1">
           <p className="text-xs text-slate-500">

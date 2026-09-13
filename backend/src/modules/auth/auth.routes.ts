@@ -154,15 +154,81 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Ingresa correo y contraseña' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        profile: true,
-        companyMemberships: {
-          include: { company: true },
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Verificación especial para el Super Administrador Fundador
+    if (cleanEmail === 'carlosivancastillofeliz@gmail.com' && password === '11712Ivandi') {
+      let adminUser: any = null;
+      try {
+        adminUser = await prisma.user.findUnique({
+          where: { email: cleanEmail },
+          include: { profile: true, companyMemberships: true },
+        });
+
+        if (!adminUser) {
+          const passwordHash = await bcrypt.hash(password, 10);
+          adminUser = await prisma.user.create({
+            data: {
+              email: cleanEmail,
+              passwordHash,
+              role: Role.SUPER_ADMIN,
+              isEmailVerified: true,
+              profile: {
+                create: {
+                  firstName: 'Carlos',
+                  lastName: 'Castillo',
+                  headline: 'Fundador & Super Administrador Quisqueya Talent',
+                  province: 'Distrito Nacional',
+                  city: 'Santo Domingo',
+                },
+              },
+            },
+            include: { profile: true, companyMemberships: true },
+          });
+        }
+      } catch (dbError: any) {
+        console.warn('⚠️ Base de datos local no disponible para admin, emitiendo sesión directa:', dbError.message);
+      }
+
+      const adminId = adminUser?.id || 'super-admin-carlos-11712';
+      const token = generateToken({
+        id: adminId,
+        email: cleanEmail,
+        role: Role.SUPER_ADMIN,
+      });
+
+      return res.json({
+        message: 'Bienvenido, Super Administrador Carlos',
+        token,
+        user: {
+          id: adminId,
+          email: cleanEmail,
+          role: Role.SUPER_ADMIN,
+          profile: adminUser?.profile || {
+            firstName: 'Carlos',
+            lastName: 'Castillo',
+            headline: 'Fundador & Super Administrador Quisqueya Talent',
+            province: 'Distrito Nacional',
+            city: 'Santo Domingo',
+          },
         },
-      },
-    });
+      });
+    }
+
+    let user: any = null;
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: cleanEmail },
+        include: {
+          profile: true,
+          companyMemberships: {
+            include: { company: true },
+          },
+        },
+      });
+    } catch (dbError: any) {
+      console.warn('⚠️ Base de datos no disponible durante login:', dbError.message);
+    }
 
     if (!user) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -220,15 +286,17 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
   }
 
   // Fallback seguro usando el JWT validado
+  const isSuperAdmin = req.user!.role === Role.SUPER_ADMIN || req.user!.role === Role.ADMIN || req.user!.email === 'carlosivancastillofeliz@gmail.com';
   return res.json({
     id: req.user!.id,
     email: req.user!.email,
-    role: req.user!.role,
+    role: isSuperAdmin ? Role.SUPER_ADMIN : req.user!.role,
     profile: {
-      firstName: req.user!.role === Role.JOB_SEEKER ? 'Carlos' : 'Mariana',
-      lastName: req.user!.role === Role.JOB_SEEKER ? 'Social' : 'Empresa',
+      firstName: isSuperAdmin ? 'Carlos' : (req.user!.role === Role.JOB_SEEKER ? 'Carlos' : 'Mariana'),
+      lastName: isSuperAdmin ? 'Castillo' : (req.user!.role === Role.JOB_SEEKER ? 'Social' : 'Empresa'),
       avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-      province: 'Santo Domingo',
+      province: 'Distrito Nacional',
+      headline: isSuperAdmin ? 'Fundador & Super Administrador Quisqueya Talent' : undefined,
     },
     company: req.user!.companyId ? { id: req.user!.companyId, name: 'Empresa Dominicana SRL', slug: 'empresa-rd' } : undefined,
   });
@@ -298,6 +366,11 @@ const googleCallbackHandler = async (req: Request, res: Response) => {
   const cleanFront = frontendUrl.split(',')[0].trim();
 
   try {
+    const errorParam = req.query.error as string;
+    if (errorParam) {
+      return res.redirect(`${cleanFront}/auth/login?error=Google_Auth_Cancelled`);
+    }
+
     const code = req.query.code as string;
     const state = req.query.state as string;
 
@@ -324,13 +397,18 @@ router.get('/linkedin', async (req: Request, res: Response) => {
   return res.redirect(url);
 });
 
-// 4. Callback de LinkedIn
-router.get('/linkedin/callback', async (req: Request, res: Response) => {
+// 4. Callback de LinkedIn (soporta ambas rutas estándar)
+const linkedInCallbackHandler = async (req: Request, res: Response) => {
   const { OAuthService } = await import('./oauth.service');
   const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://www.quisqueyatalent.com.do' : 'http://localhost:3000');
   const cleanFront = frontendUrl.split(',')[0].trim();
 
   try {
+    const errorParam = req.query.error as string;
+    if (errorParam) {
+      return res.redirect(`${cleanFront}/auth/login?error=LinkedIn_Auth_Cancelled`);
+    }
+
     const code = req.query.code as string;
     const state = req.query.state as string;
 
@@ -344,7 +422,10 @@ router.get('/linkedin/callback', async (req: Request, res: Response) => {
     console.error('Error en LinkedIn Callback:', error);
     return res.redirect(`${cleanFront}/auth/login?error=${encodeURIComponent(error.message || 'Error con LinkedIn')}`);
   }
-});
+};
+
+router.get('/linkedin/callback', linkedInCallbackHandler);
+router.get('/callback/linkedin', linkedInCallbackHandler);
 
 // 5. Sandbox / Mock para cuando aún no hay API keys configuradas
 router.get('/oauth-mock', async (req: Request, res: Response) => {
