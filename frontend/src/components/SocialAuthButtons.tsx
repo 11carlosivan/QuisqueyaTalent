@@ -16,7 +16,6 @@ export default function SocialAuthButtons({
 }: SocialAuthButtonsProps) {
   const roleParam = encodeURIComponent(role);
   const googleHref = `${API_URL}/api/auth/google?role=${roleParam}`;
-  const linkedInHref = `${API_URL}/api/auth/linkedin?role=${roleParam}`;
 
   const actionText = mode === 'register' ? 'Registrarse' : 'Continuar';
 
@@ -54,23 +53,6 @@ export default function SocialAuthButtons({
         </span>
       </a>
 
-      {/* Botón LinkedIn */}
-      <a
-        href={linkedInHref}
-        id="btn-social-linkedin"
-        aria-label={`${actionText} con LinkedIn`}
-        className="group relative flex items-center justify-center gap-3 w-full min-h-[46px] sm:min-h-[48px] px-4 py-3 bg-[#0A66C2] hover:bg-[#004182] active:bg-[#003366] text-white rounded-2xl font-bold text-xs sm:text-sm shadow-xs hover:shadow-md transition-all duration-150 active:scale-[0.98] cursor-pointer"
-      >
-        <svg
-          className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 fill-current transition-transform group-hover:scale-105"
-          viewBox="0 0 24 24"
-        >
-          <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.64 1.64 0 1 0 0 3.28 1.64 1.64 0 0 0 0-3.28z" />
-        </svg>
-        <span className="truncate">
-          {actionText} con <strong className="font-extrabold text-white">LinkedIn</strong>
-        </span>
-      </a>
 
       {/* Separador Visual con texto */}
       <div className="relative flex items-center py-2">
