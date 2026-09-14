@@ -239,18 +239,100 @@ export default function CompanyDashboardPage() {
           </div>
 
           {jobs.length === 0 ? (
-            <div className="py-12 text-center text-slate-400">
-              <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-800 text-base mb-1">No tienes vacantes publicadas</h3>
-              <p className="text-xs text-slate-500 mb-4">
-                Publica tu primera oportunidad laboral sin costo y comienza a recibir candidatos dominicanos hoy mismo.
-              </p>
-              <Link
-                href="/dashboard/empresa/vacantes/nueva"
-                className="bg-blue-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl hover:bg-blue-700 transition"
-              >
-                Publicar Vacante Gratis
-              </Link>
+            <div className="space-y-6">
+              <div className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-slate-50 border border-blue-200/80 rounded-3xl p-6 sm:p-8">
+                <div className="max-w-2xl">
+                  <div className="inline-flex items-center gap-2 bg-blue-600/10 text-blue-700 text-xs font-bold px-3 py-1 rounded-full mb-3">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                    Primeros Pasos para tu Empresa
+                  </div>
+                  <h3 className="text-xl font-extrabold text-slate-900 font-['Plus_Jakarta_Sans']">
+                    ¡Te damos la bienvenida a Quisqueya Talent!
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                    Sigue esta guía de 3 sencillos pasos para activar tu proceso de selección y comenzar a recibir talento dominicano calificado.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                  {/* Paso 1 */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center">
+                          1
+                        </span>
+                        <Building2 className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <h4 className="font-extrabold text-slate-900 text-sm">
+                        Perfil Corporativo
+                      </h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Agrega tu logo, provincia y descripción corporativa para que los candidatos conozcan tu marca empleadora.
+                      </p>
+                    </div>
+                    <Link
+                      href="/dashboard/empresa/perfil"
+                      className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-2"
+                    >
+                      Configurar Perfil
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+
+                  {/* Paso 2 */}
+                  <div className="bg-white p-5 rounded-2xl border-2 border-blue-500 shadow-md shadow-blue-500/10 flex flex-col justify-between space-y-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-bl-xl uppercase tracking-wider">
+                      Recomendado
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="w-8 h-8 rounded-xl bg-blue-600 text-white font-black text-xs flex items-center justify-center">
+                          2
+                        </span>
+                        <Sparkles className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <h4 className="font-extrabold text-slate-900 text-sm">
+                        Publica con Inteligencia Artificial
+                      </h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Crea tu primera oferta en 30 segundos usando nuestro asistente IA y difúndela en toda República Dominicana.
+                      </p>
+                    </div>
+                    <Link
+                      href="/dashboard/empresa/vacantes/nueva"
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-xl text-center shadow-xs transition"
+                    >
+                      Publicar Vacante Gratis
+                    </Link>
+                  </div>
+
+                  {/* Paso 3 */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 font-black text-xs flex items-center justify-center">
+                          3
+                        </span>
+                        <Users className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <h4 className="font-extrabold text-slate-900 text-sm">
+                        Explora el Directorio de Talento
+                      </h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Encuentra y contacta perfiles profesionales calificados listos para incorporarse a tu equipo.
+                      </p>
+                    </div>
+                    <Link
+                      href="/candidatos"
+                      className="text-xs font-bold text-slate-700 hover:text-blue-600 flex items-center gap-1 mt-2"
+                    >
+                      Explorar Candidatos
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">

@@ -144,6 +144,70 @@ export const emailService = {
       console.error('Error enviando actualización de estado con Resend:', error);
     }
   },
+
+  /**
+   * Enviar enlace para restablecer contraseña olvidada
+   */
+  async sendPasswordResetEmail({
+    email,
+    resetUrl,
+    userName,
+  }: {
+    email: string;
+    resetUrl: string;
+    userName?: string;
+  }) {
+    if (!resend) {
+      console.log('ℹ️ Resend API Key no configurada. Enlace de restablecimiento generado:', resetUrl);
+      return;
+    }
+
+    try {
+      const nameGreeting = userName ? `¡Hola, ${userName}!` : '¡Hola!';
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: email,
+        subject: 'Restablece tu contraseña de Quisqueya Talent 🇩🇴',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h1 style="color: #0284c7; margin: 0; font-size: 24px; font-weight: 800;">Quisqueya Talent</h1>
+              <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Recuperación Segura de Contraseña</p>
+            </div>
+
+            <div style="background: #f8fafc; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #f1f5f9;">
+              <h2 style="color: #0f172a; margin-top: 0; font-size: 18px;">${nameGreeting}</h2>
+              <p style="color: #334155; font-size: 15px; line-height: 1.6;">
+                Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en <strong>Quisqueya Talent</strong>.
+              </p>
+              <p style="color: #334155; font-size: 15px; line-height: 1.6;">
+                Haz clic en el siguiente botón para definir una nueva contraseña segura:
+              </p>
+
+              <div style="text-align: center; margin: 28px 0;">
+                <a href="${resetUrl}" style="background-color: #0284c7; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 15px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.2);">
+                  Restablecer mi Contraseña
+                </a>
+              </div>
+
+              <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 0;">
+                ⏱️ Este enlace es válido únicamente por <strong>1 hora</strong>. Si no solicitaste este cambio, puedes ignorar este correo; tu cuenta permanece completamente segura.
+              </p>
+            </div>
+
+            <div style="text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+              <p style="margin: 4px 0;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+              <p style="margin: 4px 0; word-break: break-all; color: #0284c7;">${resetUrl}</p>
+              <p style="margin-top: 16px;">© 2026 Quisqueya Talent • Santo Domingo, República Dominicana</p>
+            </div>
+          </div>
+        `,
+      });
+    } catch (error) {
+      console.error('Error enviando correo de restablecimiento con Resend:', error);
+      throw error;
+    }
+  },
 };
 
 export default emailService;

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Logo from './Logo';
 import { useAuth } from '../lib/auth-context';
-import { Sparkles, Briefcase, FileText, Building2, UserCircle, LogOut, ShieldCheck, Menu, X, Plus, User } from 'lucide-react';
+import { Sparkles, Briefcase, FileText, Building2, UserCircle, LogOut, ShieldCheck, Menu, X, Plus, User, Users } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -75,6 +75,16 @@ export const Navbar: React.FC = () => {
               Perfil Corporativo
             </Link>
           )}
+
+          <Link
+            href="/candidatos"
+            className={`text-sm font-semibold transition flex items-center gap-1.5 ${
+              pathname.includes('/candidatos') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Talento
+          </Link>
 
           <Link
             href="/empresas"
@@ -212,6 +222,13 @@ export const Navbar: React.FC = () => {
               🏢 Mi Perfil Corporativo
             </Link>
           )}
+          <Link
+            href="/candidatos"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block text-slate-800 font-semibold py-2 px-3 rounded-lg hover:bg-slate-50"
+          >
+            Directorio de Talento
+          </Link>
           <Link
             href="/empresas"
             onClick={() => setMobileMenuOpen(false)}

@@ -36,6 +36,7 @@ export const Footer: React.FC = () => {
             <h4 className="text-white font-bold text-sm tracking-wider uppercase mb-4">Para Empresas</h4>
             <ul className="space-y-2.5 text-sm">
               <li><Link href="/dashboard/empresa/vacantes/nueva" className="hover:text-white transition">Publicar Empleo Gratis</Link></li>
+              <li><Link href="/candidatos" className="hover:text-white transition">Directorio de Talento</Link></li>
               <li><Link href="/dashboard/empresa" className="hover:text-white transition">Panel ATS de Candidatos</Link></li>
               <li><Link href="/empresas" className="hover:text-white transition">Directorio de Empresas</Link></li>
               <li><Link href="/dashboard/empresa/vacantes/nueva" className="hover:text-white transition">Copiloto de IA para Vacantes</Link></li>

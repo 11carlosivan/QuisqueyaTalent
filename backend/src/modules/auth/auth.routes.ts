@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { Role } from '@prisma/client';
 import prisma from '../../config/prisma';
 import { authenticate } from '../../middleware/auth';
+import emailService from '../email/email.service';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'quisqueya_talent_rd_super_secret_jwt_key_2026';
@@ -262,6 +263,121 @@ router.post('/login', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error en login:', error);
     return res.status(500).json({ error: 'Error en el servidor al autenticar' });
+  }
+});
+
+// Solicitar Restablecimiento de Contraseña (Envía correo con Resend)
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Por favor ingresa tu correo electrónico' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+      include: { profile: true },
+    });
+
+    // Mensaje unificado por seguridad (evita enumeración de usuarios)
+    const successMessage =
+      'Si el correo está registrado en Quisqueya Talent, recibirás un enlace de restablecimiento en breve.';
+
+    if (!user) {
+      return res.json({ message: successMessage });
+    }
+
+    // Token temporal firmado de 1 hora
+    const resetToken = jwt.sign(
+      { id: user.id, email: user.email, action: 'RESET_PASSWORD' },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    const frontendUrl = (
+      process.env.FRONTEND_URL ||
+      (process.env.NODE_ENV === 'production' ? 'https://www.quisqueyatalent.com.do' : 'http://localhost:3000')
+    )
+      .split(',')[0]
+      .trim();
+
+    const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
+
+    await emailService.sendPasswordResetEmail({
+      email: user.email,
+      resetUrl,
+      userName: user.profile?.firstName,
+    });
+
+    return res.json({ message: successMessage });
+  } catch (error: any) {
+    console.error('Error en forgot-password:', error);
+    return res.status(500).json({ error: 'Error al procesar la solicitud de restablecimiento' });
+  }
+});
+
+// Aplicar Nueva Contraseña con Token
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'El token y la nueva contraseña son requeridos' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (jwtErr) {
+      return res.status(400).json({
+        error: 'El enlace de recuperación es inválido o ha expirado. Por favor solicita uno nuevo.',
+      });
+    }
+
+    if (!decoded || decoded.action !== 'RESET_PASSWORD' || !decoded.id) {
+      return res.status(400).json({
+        error: 'Token no autorizado para cambio de contraseña.',
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'El usuario ya no existe en el sistema' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    // Registrar en auditoría
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'PASSWORD_RESET_SUCCESS',
+          entity: 'User',
+          entityId: user.id,
+          details: JSON.stringify({ ipAddress: req.ip, resetAt: new Date().toISOString() }),
+        },
+      });
+    } catch {}
+
+    return res.json({
+      message: '¡Tu contraseña ha sido actualizada exitosamente! Ya puedes iniciar sesión.',
+    });
+  } catch (error: any) {
+    console.error('Error en reset-password:', error);
+    return res.status(500).json({ error: 'Error al actualizar la contraseña' });
   }
 });
 

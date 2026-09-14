@@ -126,6 +126,161 @@ router.post('/sync-from-resume', authenticate, async (req: Request, res: Respons
   }
 });
 
+// 2.5 Directorio público de candidatos (Talent Pool)
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const { q, province, skill, page = '1', limit = '12' } = req.query;
+    const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit as string, 10) || 12));
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {
+      role: Role.JOB_SEEKER,
+      profile: {
+        isPublic: true,
+      },
+    };
+
+    if (province && typeof province === 'string' && province.trim()) {
+      where.profile = {
+        ...where.profile,
+        province: {
+          contains: province.trim(),
+        },
+      };
+    }
+
+    const andConditions: any[] = [];
+
+    if (q && typeof q === 'string' && q.trim()) {
+      const query = q.trim();
+      andConditions.push({
+        OR: [
+          { profile: { firstName: { contains: query } } },
+          { profile: { lastName: { contains: query } } },
+          { profile: { headline: { contains: query } } },
+          { profile: { bio: { contains: query } } },
+          {
+            resumes: {
+              some: {
+                skills: {
+                  some: {
+                    name: { contains: query },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    if (skill && typeof skill === 'string' && skill.trim()) {
+      andConditions.push({
+        resumes: {
+          some: {
+            skills: {
+              some: {
+                name: { contains: skill.trim() },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          createdAt: true,
+          profile: {
+            select: {
+              firstName: true,
+              lastName: true,
+              headline: true,
+              bio: true,
+              province: true,
+              city: true,
+              avatarUrl: true,
+              isPublic: true,
+            },
+          },
+          resumes: {
+            where: { isDefault: true },
+            take: 1,
+            select: {
+              title: true,
+              skills: {
+                take: 8,
+                select: {
+                  name: true,
+                  level: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const candidates = await Promise.all(
+      users.map(async (u) => {
+        let skills = u.resumes[0]?.skills || [];
+        if (skills.length === 0) {
+          const anyResume = await prisma.resume.findFirst({
+            where: { userId: u.id },
+            orderBy: { updatedAt: 'desc' },
+            select: {
+              skills: {
+                take: 8,
+                select: { name: true, level: true },
+              },
+            },
+          });
+          if (anyResume) {
+            skills = anyResume.skills;
+          }
+        }
+
+        return {
+          id: u.id,
+          name: `${u.profile?.firstName || ''} ${u.profile?.lastName || ''}`.trim() || 'Candidato',
+          headline: u.profile?.headline || 'Profesional Quisqueya Talent',
+          bio: u.profile?.bio || null,
+          province: u.profile?.province || 'República Dominicana',
+          city: u.profile?.city || null,
+          avatarUrl: u.profile?.avatarUrl || null,
+          skills,
+          memberSince: u.createdAt,
+        };
+      })
+    );
+
+    return res.json({
+      candidates,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    console.error('Error al listar directorio de candidatos:', error);
+    return res.status(500).json({ error: 'Error al consultar el directorio de candidatos' });
+  }
+});
+
 // 3. Obtener perfil público de un candidato por ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
