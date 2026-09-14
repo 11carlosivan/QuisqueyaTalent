@@ -295,12 +295,16 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       { expiresIn: '1h' }
     );
 
-    const frontendUrl = (
+    let frontendUrl = (
       process.env.FRONTEND_URL ||
       (process.env.NODE_ENV === 'production' ? 'https://www.quisqueyatalent.com.do' : 'http://localhost:3000')
     )
       .split(',')[0]
       .trim();
+
+    if (frontendUrl.includes('vercel.app')) {
+      frontendUrl = 'https://www.quisqueyatalent.com.do';
+    }
 
     const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
 
@@ -539,7 +543,10 @@ router.get('/google', async (req: Request, res: Response) => {
 const googleCallbackHandler = async (req: Request, res: Response) => {
   const { OAuthService } = await import('./oauth.service');
   const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://www.quisqueyatalent.com.do' : 'http://localhost:3000');
-  const cleanFront = frontendUrl.split(',')[0].trim();
+  let cleanFront = frontendUrl.split(',')[0].trim();
+  if (cleanFront.includes('vercel.app')) {
+    cleanFront = 'https://www.quisqueyatalent.com.do';
+  }
 
   try {
     const errorParam = req.query.error as string;
@@ -577,7 +584,10 @@ router.get('/linkedin', async (req: Request, res: Response) => {
 const linkedInCallbackHandler = async (req: Request, res: Response) => {
   const { OAuthService } = await import('./oauth.service');
   const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://www.quisqueyatalent.com.do' : 'http://localhost:3000');
-  const cleanFront = frontendUrl.split(',')[0].trim();
+  let cleanFront = frontendUrl.split(',')[0].trim();
+  if (cleanFront.includes('vercel.app')) {
+    cleanFront = 'https://www.quisqueyatalent.com.do';
+  }
 
   try {
     const errorParam = req.query.error as string;

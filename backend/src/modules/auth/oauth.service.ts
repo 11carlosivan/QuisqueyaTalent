@@ -21,7 +21,11 @@ export interface OAuthUserInfo {
 export class OAuthService {
   private static getFrontendUrl(): string {
     const raw = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://www.quisqueyatalent.com.do' : 'http://localhost:3000');
-    return raw.split(',')[0].trim();
+    let clean = raw.split(',')[0].trim();
+    if (clean.includes('vercel.app')) {
+      clean = 'https://www.quisqueyatalent.com.do';
+    }
+    return clean;
   }
 
   private static getBackendUrl(): string {
