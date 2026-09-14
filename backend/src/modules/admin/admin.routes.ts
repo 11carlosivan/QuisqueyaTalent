@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Role, JobStatus } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import prisma from '../../config/prisma';
 import { authenticate, requireRole } from '../../middleware/auth';
 import storageService from '../storage/storage.service';
@@ -135,6 +136,78 @@ router.patch('/storage', async (req: Request, res: Response) => {
     return res.json({ message: 'Configuración de almacenamiento actualizada', guard: updated });
   } catch (error) {
     return res.status(500).json({ error: 'Error al actualizar configuración de almacenamiento' });
+  }
+});
+
+// 8. Limpiar todos los datos demo del sistema (Solo SUPER_ADMIN)
+router.post('/clean-demo-data', requireRole(Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
+  try {
+    const ADMIN_EMAIL = 'carlosivancastillofeliz@gmail.com';
+    const ADMIN_PASS = '11712Ivandi';
+
+    const adminPasswordHash = await bcrypt.hash(ADMIN_PASS, 10);
+    const admin = await prisma.user.upsert({
+      where: { email: ADMIN_EMAIL },
+      update: {
+        passwordHash: adminPasswordHash,
+        role: Role.SUPER_ADMIN,
+        isActive: true,
+        isEmailVerified: true,
+      },
+      create: {
+        email: ADMIN_EMAIL,
+        passwordHash: adminPasswordHash,
+        role: Role.SUPER_ADMIN,
+        isActive: true,
+        isEmailVerified: true,
+        profile: {
+          create: {
+            firstName: 'Carlos',
+            lastName: 'Castillo',
+            headline: 'Fundador & Super Administrador Quisqueya Talent',
+            province: 'Distrito Nacional',
+            city: 'Santo Domingo',
+          },
+        },
+      },
+      include: { profile: true },
+    });
+
+    // Limpieza en cascada respetando foreign keys
+    await prisma.auditLog.deleteMany({});
+    await prisma.applicationStatusHistory.deleteMany({});
+    await prisma.application.deleteMany({});
+    await prisma.savedJob.deleteMany({});
+    await prisma.jobAlert.deleteMany({});
+    await prisma.jobSkill.deleteMany({});
+    await prisma.job.deleteMany({});
+    await prisma.companyMember.deleteMany({});
+    await prisma.company.deleteMany({});
+    await prisma.resumeCertification.deleteMany({});
+    await prisma.resumeSkill.deleteMany({});
+    await prisma.resumeLanguage.deleteMany({});
+    await prisma.resumeEducation.deleteMany({});
+    await prisma.resumeExperience.deleteMany({});
+    await prisma.resume.deleteMany({});
+
+    // Eliminar perfiles y usuarios excepto el Super Admin
+    await prisma.userProfile.deleteMany({
+      where: { userId: { not: admin.id } },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { not: admin.id } },
+    });
+
+    return res.json({
+      message: 'Sistema limpio con éxito. Se eliminaron todas las empresas, vacantes y usuarios demo.',
+      preservedAdmin: {
+        email: admin.email,
+        role: admin.role,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error en limpieza del sistema:', error);
+    return res.status(500).json({ error: 'Error al limpiar datos del sistema: ' + error.message });
   }
 });
 

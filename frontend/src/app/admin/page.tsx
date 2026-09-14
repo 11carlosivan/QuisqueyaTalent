@@ -26,6 +26,7 @@ import {
   Cloud,
   HardDrive,
   ShieldAlert,
+  Trash2,
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
@@ -39,7 +40,31 @@ export default function AdminDashboardPage() {
   const [storageGuard, setStorageGuard] = useState<any>(null);
   const [savingStorage, setSavingStorage] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ads' | 'moderation' | 'companies' | 'storage'>('ads');
+  const [activeTab, setActiveTab] = useState<'ads' | 'moderation' | 'companies' | 'storage' | 'system'>('ads');
+  const [cleaningSystem, setCleaningSystem] = useState(false);
+
+  const fetchAdminData = async () => {
+    if (!token) return;
+    try {
+      setLoading(true);
+      const [m, ads, j, c, st] = await Promise.all([
+        fetch(`${API_URL}/api/admin/metrics`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        fetch(`${API_URL}/api/ads/admin/all`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        fetch(`${API_URL}/api/admin/jobs`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        fetch(`${API_URL}/api/admin/companies`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        fetch(`${API_URL}/api/admin/storage`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      ]);
+      setMetrics(m);
+      if (Array.isArray(ads)) setAdSlots(ads);
+      if (Array.isArray(j)) setJobs(j);
+      if (Array.isArray(c)) setCompanies(c);
+      if (st && !st.error) setStorageGuard(st);
+    } catch (err) {
+      console.error('Error cargando datos de admin:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isLoading && (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN'))) {
@@ -49,24 +74,40 @@ export default function AdminDashboardPage() {
     }
 
     if (token) {
-      Promise.all([
-        fetch(`${API_URL}/api/admin/metrics`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-        fetch(`${API_URL}/api/ads/admin/all`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-        fetch(`${API_URL}/api/admin/jobs`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-        fetch(`${API_URL}/api/admin/companies`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-        fetch(`${API_URL}/api/admin/storage`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-      ])
-        .then(([m, ads, j, c, st]) => {
-          setMetrics(m);
-          if (Array.isArray(ads)) setAdSlots(ads);
-          if (Array.isArray(j)) setJobs(j);
-          if (Array.isArray(c)) setCompanies(c);
-          if (st && !st.error) setStorageGuard(st);
-        })
-        .catch(console.error)
-        .finally(() => setLoading(false));
+      fetchAdminData();
     }
   }, [user, token, isLoading]);
+
+  // Limpiar todos los datos demo de producción
+  const handleCleanDemoData = async () => {
+    const confirmed = window.confirm(
+      '⚠️ ATENCIÓN: ¿Estás seguro de que deseas eliminar todas las empresas, vacantes, postulaciones y usuarios de prueba?\n\nEsta acción dejará el sistema completamente limpio y únicamente conservará tu cuenta de Super Administrador (carlosivancastillofeliz@gmail.com).'
+    );
+    if (!confirmed) return;
+
+    try {
+      setCleaningSystem(true);
+      const res = await fetch(`${API_URL}/api/admin/clean-demo-data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || 'Sistema limpio con éxito.', 'Limpieza Completada');
+        await fetchAdminData();
+      } else {
+        toast.error(data.error || 'No se pudo realizar la limpieza.', 'Error');
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Error al comunicarse con el servidor.', 'Error de Conexión');
+    } finally {
+      setCleaningSystem(false);
+    }
+  };
 
   // Activar / Desactivar Guardián de Almacenamiento Anti-Cobros (Cloudflare R2)
   const handleToggleStorageGuard = async (active: boolean) => {
@@ -286,6 +327,16 @@ export default function AdminDashboardPage() {
             {storageGuard?.isGuardActive && (
               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('system')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'system'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Trash2 className="w-4 h-4" /> Mantenimiento & Limpieza
           </button>
         </div>
 
@@ -647,6 +698,86 @@ export default function AdminDashboardPage() {
                     Mientras la opción <strong>Protección Activa</strong> esté encendida, el servidor rechazará automáticamente cualquier archivo que pudiera hacer que la cuenta sobrepase los 9.0 GB. De esta manera, tu tarjeta registrada en Cloudflare nunca recibirá un cobro imprevisto.
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PESTAÑA 5: MANTENIMIENTO DEL SISTEMA Y LIMPIEZA DE DEMO */}
+        {activeTab === 'system' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="bg-rose-100 text-rose-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  Zona de Super Admin
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-[#001428] font-['Plus_Jakarta_Sans']">
+                Mantenimiento y Purga de Datos Demo
+              </h2>
+              <p className="text-xs text-slate-500">
+                Herramientas administrativas de bajo nivel para depurar la base de datos de producción antes del lanzamiento oficial.
+              </p>
+            </div>
+
+            {/* Tarjeta de Limpieza Completa */}
+            <div className="p-6 rounded-2xl bg-rose-50/60 border border-rose-200/80 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl shrink-0">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-rose-900">
+                    Limpieza de Datos de Demostración (Producción)
+                  </h3>
+                  <p className="text-xs text-rose-700 leading-relaxed">
+                    Esta acción eliminará de forma irreversible todas las empresas ficticias (Altice Dominicana, Banco BHD, Concentrix), todas sus vacantes publicadas, postulaciones de prueba y los usuarios demo.
+                  </p>
+                </div>
+              </div>
+
+              {/* Lo que se conserva */}
+              <div className="bg-white p-4 rounded-xl border border-rose-200/70 text-xs space-y-2">
+                <div className="font-bold text-slate-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Cuenta que se preservará y mantendrá intacta:
+                </div>
+                <div className="pl-6 space-y-1 text-slate-600">
+                  <div>
+                    <strong>Super Administrador:</strong> <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">carlosivancastillofeliz@gmail.com</code>
+                  </div>
+                  <div>
+                    <strong>Contraseña garantizada:</strong> <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">11712Ivandi</code>
+                  </div>
+                  <div>
+                    <strong>Rol:</strong> <span className="text-emerald-700 font-bold">SUPER_ADMIN</span> (Acceso total e irrestricto a la plataforma)
+                  </div>
+                </div>
+              </div>
+
+              {/* Botón de Ejecución */}
+              <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <p className="text-[11px] text-rose-600 font-medium">
+                  ⚠️ Se solicitará confirmación antes de proceder.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCleanDemoData}
+                  disabled={cleaningSystem}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs min-h-[42px]"
+                >
+                  {cleaningSystem ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Limpiando base de datos...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Limpiar Todo y Dejar Solo Mi Super Admin
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
