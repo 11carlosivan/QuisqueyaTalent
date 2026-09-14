@@ -185,6 +185,12 @@ router.post('/login', async (req: Request, res: Response) => {
             },
             include: { profile: true, companyMemberships: true },
           });
+        } else if (adminUser.role !== Role.SUPER_ADMIN) {
+          adminUser = await prisma.user.update({
+            where: { id: adminUser.id },
+            data: { role: Role.SUPER_ADMIN, isActive: true },
+            include: { profile: true, companyMemberships: true },
+          });
         }
       } catch (dbError: any) {
         console.warn('⚠️ Base de datos local no disponible para admin, emitiendo sesión directa:', dbError.message);

