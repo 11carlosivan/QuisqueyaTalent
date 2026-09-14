@@ -1,6 +1,7 @@
 'use client';
 
 import { API_URL } from '@/lib/api';
+import GoogleLinkCard from '@/components/GoogleLinkCard';
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -634,6 +635,9 @@ export default function CompanyProfileManagePage() {
             </div>
           </div>
         </form>
+
+        {/* VINCULACIÓN CON GOOGLE */}
+        <GoogleLinkCard className="mt-6" />
 
         {/* ZONA DE SEGURIDAD: ELIMINAR CUENTA CORPORATIVA */}
         <div className="bg-white rounded-2xl border border-rose-200/80 p-6 shadow-xs mt-6 space-y-4">

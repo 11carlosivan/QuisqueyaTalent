@@ -20,12 +20,13 @@ function AuthCallbackContent() {
     const token = searchParams.get('token');
     const error = searchParams.get('error');
     const target = searchParams.get('target');
+    const linked = searchParams.get('linked');
 
     if (error) {
       setStatus('error');
       setErrorMessage(
         error === 'Google_Auth_Cancelled' || error === 'LinkedIn_Auth_Cancelled'
-          ? 'Has cancelado el inicio de sesión.'
+          ? 'Has cancelado el proceso de autorización.'
           : decodeURIComponent(error)
       );
       return;
@@ -54,16 +55,18 @@ function AuthCallbackContent() {
         login(token, userData);
         setStatus('success');
 
-        // Redirigir al dashboard adecuado tras una breve pausa para animar la transición
+        // Redirigir al destino adecuado tras una breve pausa para animar la transición
         setTimeout(() => {
           if (target && target.startsWith('/')) {
-            router.push(target);
+            const separator = target.includes('?') ? '&' : '?';
+            const dest = linked ? `${target}${separator}linked=${linked}` : target;
+            router.push(dest);
           } else if (userData.role === 'JOB_SEEKER') {
-            router.push('/dashboard/candidato');
+            router.push(linked ? `/dashboard/candidato/perfil?linked=${linked}` : '/dashboard/candidato');
           } else if (userData.role === 'ADMIN' || userData.role === 'SUPER_ADMIN') {
             router.push('/admin');
           } else {
-            router.push('/dashboard/empresa');
+            router.push(linked ? `/dashboard/empresa/perfil?linked=${linked}` : '/dashboard/empresa');
           }
         }, 800);
       } catch (err: any) {

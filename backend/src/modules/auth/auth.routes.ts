@@ -279,10 +279,42 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
     });
 
     if (user) {
+      let isGoogleLinked = false;
+      let googleEmail = user.email;
+
+      try {
+        const googleLog = await prisma.auditLog.findFirst({
+          where: {
+            userId: user.id,
+            action: { in: ['LINK_GOOGLE_ACCOUNT', 'OAUTH_LOGIN_GOOGLE', 'OAUTH_REGISTER_GOOGLE'] },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (googleLog) {
+          isGoogleLinked = true;
+          if (googleLog.details) {
+            try {
+              const d = JSON.parse(googleLog.details);
+              if (d.googleEmail) googleEmail = d.googleEmail;
+            } catch {}
+          }
+        } else if (user.profile?.avatarUrl && user.profile.avatarUrl.includes('googleusercontent.com')) {
+          isGoogleLinked = true;
+        }
+      } catch (logErr) {
+        if (user.profile?.avatarUrl && user.profile.avatarUrl.includes('googleusercontent.com')) {
+          isGoogleLinked = true;
+        }
+      }
+
       return res.json({
         id: user.id,
         email: user.email,
         role: user.role,
+        isEmailVerified: user.isEmailVerified,
+        isGoogleLinked,
+        googleEmail: isGoogleLinked ? googleEmail : undefined,
         profile: user.profile,
         company: user.companyMemberships[0]?.company,
       });
@@ -297,6 +329,7 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
     id: req.user!.id,
     email: req.user!.email,
     role: isSuperAdmin ? Role.SUPER_ADMIN : req.user!.role,
+    isGoogleLinked: false,
     profile: {
       firstName: isSuperAdmin ? 'Carlos' : (req.user!.role === Role.JOB_SEEKER ? 'Carlos' : 'Mariana'),
       lastName: isSuperAdmin ? 'Castillo' : (req.user!.role === Role.JOB_SEEKER ? 'Social' : 'Empresa'),
@@ -306,6 +339,24 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
     },
     company: req.user!.companyId ? { id: req.user!.companyId, name: 'Empresa Dominicana SRL', slug: 'empresa-rd' } : undefined,
   });
+});
+
+// Desvincular cuenta de Google
+router.post('/unlink/google', authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    await prisma.auditLog.deleteMany({
+      where: {
+        userId,
+        action: { in: ['LINK_GOOGLE_ACCOUNT', 'OAUTH_LOGIN_GOOGLE', 'OAUTH_REGISTER_GOOGLE'] },
+      },
+    });
+
+    return res.json({ message: 'Cuenta de Google desvinculada exitosamente' });
+  } catch (error: any) {
+    console.error('Error desvinculando Google:', error);
+    return res.status(500).json({ error: 'Error al desvincular la cuenta de Google' });
+  }
 });
 
 // Eliminar Cuenta Permanentemente (Derecho al Olvido / Ley 172-13)
@@ -344,9 +395,10 @@ router.delete('/account', authenticate, async (req: Request, res: Response) => {
     }
 
     // Eliminar el usuario en cascada
+    await prisma.auditLog.deleteMany({ where: { userId } });
     await prisma.user.delete({ where: { id: userId } });
 
-    return res.json({ message: 'Cuenta y datos personales eliminados permanentemente' });
+    return res.json({ message: 'Tu cuenta y todos tus datos personales han sido eliminados de Quisqueya Talent.' });
   } catch (error: any) {
     console.error('Error al eliminar cuenta:', error);
     return res.status(500).json({ error: 'Error al procesar la eliminación de la cuenta' });
@@ -357,11 +409,13 @@ router.delete('/account', authenticate, async (req: Request, res: Response) => {
 // RUTAS OAUTH SOCIALES (GOOGLE & LINKEDIN)
 // =========================================================================
 
-// 1. Iniciar sesión con Google
+// 1. Iniciar sesión o vincular con Google
 router.get('/google', async (req: Request, res: Response) => {
   const { OAuthService } = await import('./oauth.service');
   const role = (req.query.role as string) || 'candidato';
-  const url = OAuthService.getGoogleAuthUrl(role);
+  const linkUserId = req.query.linkUserId as string | undefined;
+  const redirectBack = req.query.redirectBack as string | undefined;
+  const url = OAuthService.getGoogleAuthUrl(role, linkUserId, redirectBack);
   return res.redirect(url);
 });
 

@@ -31,7 +31,7 @@ export class OAuthService {
   // =========================================================================
   // 1. GOOGLE OAUTH 2.0 / OPENID CONNECT
   // =========================================================================
-  static getGoogleAuthUrl(role: string = 'candidato'): string {
+  static getGoogleAuthUrl(role: string = 'candidato', linkUserId?: string, redirectBack?: string): string {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     if (!clientId) {
       // Modo Mock / Sandbox para desarrollo cuando aún no se ha configurado la clave
@@ -40,7 +40,7 @@ export class OAuthService {
 
     const redirectUri = encodeURIComponent(process.env.GOOGLE_REDIRECT_URI || `${this.getBackendUrl()}/api/auth/callback/google`);
     const scope = encodeURIComponent('openid email profile');
-    const state = encodeURIComponent(JSON.stringify({ role }));
+    const state = encodeURIComponent(JSON.stringify({ role, linkUserId, redirectBack }));
 
     return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
   }
@@ -51,10 +51,15 @@ export class OAuthService {
     const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${this.getBackendUrl()}/api/auth/callback/google`;
 
     let role = 'candidato';
+    let linkUserId: string | undefined = undefined;
+    let redirectBack: string | undefined = undefined;
+
     if (stateStr) {
       try {
         const parsed = JSON.parse(decodeURIComponent(stateStr));
         if (parsed.role) role = parsed.role;
+        if (parsed.linkUserId) linkUserId = parsed.linkUserId;
+        if (parsed.redirectBack) redirectBack = parsed.redirectBack;
       } catch {
         role = stateStr;
       }
@@ -91,6 +96,19 @@ export class OAuthService {
     const userInfo = (await userRes.json()) as any;
     if (!userRes.ok || !userInfo.email) {
       throw new Error('No se pudo obtener el correo electrónico de tu cuenta de Google.');
+    }
+
+    // Si viene linkUserId, procedemos a vincular la cuenta existente
+    if (linkUserId) {
+      return this.linkGoogleAccount(linkUserId, {
+        provider: 'google',
+        providerId: userInfo.sub,
+        email: userInfo.email,
+        firstName: userInfo.given_name || userInfo.name?.split(' ')[0] || 'Usuario',
+        lastName: userInfo.family_name || userInfo.name?.split(' ').slice(1).join(' ') || 'Google',
+        avatarUrl: userInfo.picture || undefined,
+        role,
+      }, redirectBack);
     }
 
     return this.findOrCreateSocialUser({
@@ -266,6 +284,22 @@ export class OAuthService {
             data: updateData,
           });
         }
+        if (info.provider === 'google' && user?.id) {
+          try {
+            await prisma.auditLog.create({
+              data: {
+                userId: user.id,
+                action: 'OAUTH_LOGIN_GOOGLE',
+                entity: 'User',
+                entityId: user.id,
+                details: JSON.stringify({
+                  googleEmail: email,
+                  googleSub: info.providerId,
+                }),
+              },
+            });
+          } catch {}
+        }
       }
     } catch (dbError: any) {
       console.warn('⚠️ Base de datos local no disponible, generando sesión social simulada:', dbError.message);
@@ -301,6 +335,98 @@ export class OAuthService {
     return {
       token,
       role: user.role,
+      redirectUrl,
+    };
+  }
+
+  // =========================================================================
+  // 4. VINCULAR CUENTA EXISTENTE CON GOOGLE
+  // =========================================================================
+  static async linkGoogleAccount(
+    linkUserId: string,
+    info: OAuthUserInfo,
+    redirectBack?: string
+  ): Promise<{ token: string; role: Role; redirectUrl: string }> {
+    const { email, avatarUrl, providerId } = info;
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: linkUserId },
+      include: { profile: true, companyMemberships: true },
+    });
+
+    if (!currentUser) {
+      throw new Error('No se encontró la cuenta de usuario activa para vincular.');
+    }
+
+    // Si el email de Google pertenece a OTRA cuenta diferente en el sistema
+    const conflictUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (conflictUser && conflictUser.id !== currentUser.id) {
+      throw new Error(`La cuenta de Google (${email}) ya está vinculada con otra cuenta diferente en Quisqueya Talent.`);
+    }
+
+    // Actualizar avatar si no tenía uno personalizado
+    if (avatarUrl && (!currentUser.profile?.avatarUrl || currentUser.profile.avatarUrl.includes('placeholder'))) {
+      if (currentUser.profile) {
+        await prisma.userProfile.update({
+          where: { userId: currentUser.id },
+          data: { avatarUrl },
+        });
+      }
+    }
+
+    // Asegurar que el email quede verificado
+    await prisma.user.update({
+      where: { id: currentUser.id },
+      data: { isEmailVerified: true },
+    });
+
+    // Registrar auditoría de vinculación
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: currentUser.id,
+          action: 'LINK_GOOGLE_ACCOUNT',
+          entity: 'User',
+          entityId: currentUser.id,
+          details: JSON.stringify({
+            googleEmail: email,
+            googleSub: providerId,
+            linkedAt: new Date().toISOString(),
+          }),
+        },
+      });
+    } catch (auditErr: any) {
+      console.warn('⚠️ No se pudo registrar AuditLog de vinculación Google:', auditErr.message);
+    }
+
+    // Generar JWT actualizado
+    const token = jwt.sign(
+      {
+        id: currentUser.id,
+        email: currentUser.email,
+        role: currentUser.role,
+        companyId: currentUser.companyMemberships?.[0]?.companyId,
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN as any }
+    );
+
+    const defaultTarget =
+      currentUser.role === Role.JOB_SEEKER
+        ? '/dashboard/candidato/perfil'
+        : currentUser.role === Role.ADMIN || currentUser.role === Role.SUPER_ADMIN
+        ? '/admin'
+        : '/dashboard/empresa/perfil';
+
+    const target = redirectBack || defaultTarget;
+    const redirectUrl = `${this.getFrontendUrl()}/auth/callback?token=${token}&role=${currentUser.role}&target=${encodeURIComponent(target)}&linked=google`;
+
+    return {
+      token,
+      role: currentUser.role,
       redirectUrl,
     };
   }

@@ -9,6 +9,9 @@ export interface User {
   id: string;
   email: string;
   role: 'JOB_SEEKER' | 'COMPANY_OWNER' | 'COMPANY_RECRUITER' | 'ADMIN' | 'SUPER_ADMIN';
+  isEmailVerified?: boolean;
+  isGoogleLinked?: boolean;
+  googleEmail?: string;
   profile?: {
     firstName?: string;
     lastName?: string;
@@ -29,6 +32,7 @@ interface AuthContextType {
   token: string | null;
   login: (token: string, user: User) => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   loginAsDemo: (role: 'candidato' | 'empresa' | 'admin') => Promise<void>;
   isLoading: boolean;
 }
@@ -38,6 +42,7 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   login: () => {},
   logout: () => {},
+  refreshUser: async () => {},
   loginAsDemo: async () => {},
   isLoading: true,
 });
@@ -67,6 +72,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
     localStorage.setItem('qt_token', newToken);
     localStorage.setItem('qt_user', JSON.stringify(newUser));
+  };
+
+  const refreshUser = async () => {
+    const currentToken = token || localStorage.getItem('qt_token');
+    if (!currentToken) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${currentToken}` },
+      });
+      if (res.ok) {
+        const updatedUser = await res.json();
+        setUser(updatedUser);
+        localStorage.setItem('qt_user', JSON.stringify(updatedUser));
+      }
+    } catch (err) {
+      console.error('Error refrescando usuario:', err);
+    }
   };
 
   const logout = () => {
@@ -101,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loginAsDemo, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, refreshUser, loginAsDemo, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

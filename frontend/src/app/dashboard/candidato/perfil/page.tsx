@@ -1,6 +1,7 @@
 'use client';
 
 import { API_URL } from '@/lib/api';
+import GoogleLinkCard from '@/components/GoogleLinkCard';
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -1098,6 +1099,9 @@ export default function CandidateProfilePage() {
             </div>
           </div>
         )}
+
+        {/* VINCULACIÓN CON CUENTA DE GOOGLE */}
+        <GoogleLinkCard />
 
         {/* ZONA DE PELIGRO: ELIMINACIÓN PERMANENTE DE CUENTA */}
         <div className="bg-white rounded-3xl border border-rose-200/80 p-6 md:p-8 shadow-xs space-y-4">
