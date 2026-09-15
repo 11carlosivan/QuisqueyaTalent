@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Logo from './Logo';
 import { useAuth } from '../lib/auth-context';
+import { API_URL } from '../lib/api';
 import { Sparkles, Briefcase, FileText, Building2, UserCircle, LogOut, ShieldCheck, Menu, X, Plus, User, Users } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -12,6 +13,13 @@ export const Navbar: React.FC = () => {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Mantener despierto el backend en segundo plano silenciosamente
+  useEffect(() => {
+    try {
+      fetch(`${API_URL}/api/health`, { keepalive: true }).catch(() => {});
+    } catch {}
+  }, []);
 
   const getDashboardHref = () => {
     if (!user) return '/auth/login';

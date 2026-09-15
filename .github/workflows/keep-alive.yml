@@ -1,0 +1,22 @@
+name: Render Backend Keep-Alive
+
+on:
+  schedule:
+    # Ejecuta cada 10 minutos (Render duerme a los 15 min de inactividad)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Permite disparo manual desde GitHub si se desea
+
+jobs:
+  ping-render:
+    name: Ping Render API
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Health Endpoint
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://quisqueyatalent-api.onrender.com/api/health)
+          echo "Render Health Check Status: $RESPONSE"
+          if [ "$RESPONSE" -ne 200 ]; then
+            echo "Aviso: El backend respondió con código $RESPONSE (posiblemente despertando)."
+          else
+            echo "Backend activo y respondiendo correctamente."
+          fi
