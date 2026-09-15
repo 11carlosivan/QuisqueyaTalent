@@ -75,6 +75,37 @@ export const metadata: Metadata = {
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || 'G-FDGRFBSF9M';
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Quisqueya Talent',
+  alternateName: ['QuisqueyaTalent', 'Quisqueya Talent RD'],
+  url: SITE_URL,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${SITE_URL}/empleos?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+};
+
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Quisqueya Talent',
+  url: SITE_URL,
+  logo: `${SITE_URL}/icon-512x512.png`,
+  sameAs: ['https://www.instagram.com/quisqueyatalent'],
+  contactPoint: {
+    '@type': 'ContactPoint',
+    contactType: 'customer support',
+    areaServed: 'DO',
+    availableLanguage: ['Spanish', 'English'],
+  },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -88,6 +119,14 @@ export default function RootLayout({
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
           rel="stylesheet"
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
       </head>
       <body className="min-h-screen flex flex-col bg-[#f8f9ff] text-[#0b1c30] antialiased">
