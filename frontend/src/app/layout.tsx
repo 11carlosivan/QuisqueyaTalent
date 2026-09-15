@@ -72,7 +72,7 @@ export const metadata: Metadata = {
   },
 };
 
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID || 'G-3CS24G6VMD';
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID || 'G-FDGRFBSF9M';
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
 export default function RootLayout({
@@ -89,6 +89,8 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
           rel="stylesheet"
         />
+      </head>
+      <body className="min-h-screen flex flex-col bg-[#f8f9ff] text-[#0b1c30] antialiased">
         {/* Google Analytics 4 */}
         {GA_ID && (
           <>
@@ -101,7 +103,9 @@ export default function RootLayout({
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '${GA_ID}');
+                gtag('config', '${GA_ID}', {
+                  page_path: window.location.pathname,
+                });
               `}
             </Script>
           </>
@@ -123,8 +127,6 @@ export default function RootLayout({
             `}
           </Script>
         )}
-      </head>
-      <body className="min-h-screen flex flex-col bg-[#f8f9ff] text-[#0b1c30] antialiased">
         <AuthProvider>
           <ToastProvider>
             <Navbar />
