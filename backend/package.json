@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "prisma skills sync || exit 0",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "prisma generate && tsc",
+    "build": "prisma generate && prisma db push --accept-data-loss && tsc",
     "start": "node dist/server.js",
     "seed": "ts-node prisma/seed.ts",
     "db:push": "prisma db push"

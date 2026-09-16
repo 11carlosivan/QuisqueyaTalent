@@ -125,30 +125,108 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (
   }
 
   /**
-   * Motor de extracción heurística y redacción para publicaciones dominicanas
+   * Detector avanzado para distinguir ofertas de empleo de posts normales (memes, tips, feriados, efemérides, saludos)
    */
-  private static heuristicJobExtractor(text: string): ExtractedJobData {
+  static isLegitimateJobOffer(text: string): { isJob: boolean; reason: string } {
     const lower = text.toLowerCase();
 
-    // 1. Detectar si es oferta de empleo
-    const jobKeywords = [
-      'vacante',
-      'empleo',
-      'buscamos',
+    // 1. Patrones Negativos Críticos (posts comunes que NUNCA son vacantes)
+    const nonJobPatterns = [
+      'feliz día',
+      'feliz dia',
+      'feliz fin de semana',
+      'feliz inicio de semana',
+      'buenos días',
+      'buenos dias',
+      'buenas tardes',
+      'buenas noches',
+      'recordatorio de feriado',
+      'día no laborable',
+      'dia no laborable',
+      'aniversario',
+      'felicitaciones',
+      'enhorabuena',
+      'tips para tu entrevista',
+      'consejos para tu entrevista',
+      'consejos para tu cv',
+      'tips para tu cv',
+      'sabías que',
+      'sabias que',
+      'frase del día',
+      'frase motivacional',
+      'reflexión de hoy',
+      'reflexion de hoy',
+      'diplomado',
+      'taller práctico',
+      'taller virtual',
+      'curso online',
+      'webinar',
+      'precio de preventa',
+      'compra ya',
+      'descuento especial',
+      '2x1',
+    ];
+
+    for (const pattern of nonJobPatterns) {
+      if (lower.includes(pattern)) {
+        return {
+          isJob: false,
+          reason: `Descartado: contiene patrón no laboral ("${pattern}")`,
+        };
+      }
+    }
+
+    // 2. Patrones Positivos Fuertes (indicadores inequívocos de contratación)
+    const strongJobKeywords = [
+      'estamos contratando',
+      'vacante disponible',
+      'vacantes disponibles',
+      'nueva vacante',
       'se busca',
-      'contratando',
+      'estamos buscando',
       'solicitamos',
-      'puesto',
+      'oportunidad de empleo',
       'oportunidad laboral',
+      'envía tu cv',
       'enviar cv',
       'aplica ya',
       'postúlate',
       'postulate',
-      'requisitos',
-      'hiring',
-      'job',
+      'perfil del puesto',
+      'requisitos del puesto',
+      'requisitos:',
+      'funciones:',
+      'responsabilidades:',
+      'we are hiring',
+      'now hiring',
+      'job opening',
     ];
-    const isJobOffer = jobKeywords.some((k) => lower.includes(k));
+
+    const hasStrongIndicator = strongJobKeywords.some((k) => lower.includes(k));
+
+    // Si tiene un correo explícito y además alguna palabra clave de empleo
+    const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(text);
+    const hasAnyJobWord = ['vacante', 'empleo', 'puesto', 'salario', 'contratación', 'personal'].some((w) =>
+      lower.includes(w)
+    );
+
+    if (hasStrongIndicator || (hasEmail && hasAnyJobWord)) {
+      return { isJob: true, reason: 'Oferta de empleo detectada por patrones de contratación' };
+    }
+
+    return {
+      isJob: false,
+      reason: 'No cuenta con señales ni llamados de reclutamiento laboral',
+    };
+  }
+
+  /**
+   * Motor de extracción heurística y redacción para publicaciones dominicanas
+   */
+  private static heuristicJobExtractor(text: string): ExtractedJobData {
+    const lower = text.toLowerCase();
+    const check = this.isLegitimateJobOffer(text);
+    const isJobOffer = check.isJob;
 
     // 2. Extraer correo para postulación
     const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
