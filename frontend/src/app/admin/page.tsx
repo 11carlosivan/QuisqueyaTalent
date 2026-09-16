@@ -27,7 +27,9 @@ import {
   HardDrive,
   ShieldAlert,
   Trash2,
+  Bot,
 } from 'lucide-react';
+import AIPublisherTab from '@/components/AIPublisherTab';
 
 export default function AdminDashboardPage() {
   const { user, token, isLoading } = useAuth();
@@ -40,7 +42,7 @@ export default function AdminDashboardPage() {
   const [storageGuard, setStorageGuard] = useState<any>(null);
   const [savingStorage, setSavingStorage] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ads' | 'moderation' | 'companies' | 'storage' | 'system'>('ads');
+  const [activeTab, setActiveTab] = useState<'ai-publisher' | 'ads' | 'moderation' | 'companies' | 'storage' | 'system'>('ai-publisher');
   const [cleaningSystem, setCleaningSystem] = useState(false);
 
   const fetchAdminData = async () => {
@@ -286,6 +288,19 @@ export default function AdminDashboardPage() {
         {/* Selector de Pestañas */}
         <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
           <button
+            onClick={() => setActiveTab('ai-publisher')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'ai-publisher'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Bot className="w-4 h-4 text-amber-300" /> 🤖 Publicador IA (Instagram)
+            <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+              AUTO
+            </span>
+          </button>
+          <button
             onClick={() => setActiveTab('ads')}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
               activeTab === 'ads'
@@ -339,6 +354,9 @@ export default function AdminDashboardPage() {
             <Trash2 className="w-4 h-4" /> Mantenimiento & Limpieza
           </button>
         </div>
+
+        {/* PESTAÑA: PUBLICADOR IA DE VACANTES (INSTAGRAM) */}
+        {activeTab === 'ai-publisher' && token && <AIPublisherTab token={token} />}
 
         {/* PESTAÑA 1: ADSLOT MANAGER (GOOGLE ADSENSE) */}
         {activeTab === 'ads' && (

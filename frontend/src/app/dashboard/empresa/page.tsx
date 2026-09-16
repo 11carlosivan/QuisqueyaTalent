@@ -22,6 +22,7 @@ import {
   Loader2,
   PowerOff,
   AlertTriangle,
+  Bot,
 } from 'lucide-react';
 
 export default function CompanyDashboardPage() {
@@ -135,12 +136,21 @@ export default function CompanyDashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+              <Link
+                href="/admin"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition flex items-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer"
+              >
+                <Bot className="w-4 h-4 text-amber-300" />
+                Gestionar Vacantes con IA (Instagram)
+              </Link>
+            )}
             <Link
               href="/dashboard/empresa/vacantes/nueva"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition flex items-center gap-2 shadow-md shadow-blue-600/30 cursor-pointer"
+              className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition flex items-center gap-2 shadow-md cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              Publicar Nueva Vacante Gratis
+              Publicar Manualmente
             </Link>
           </div>
         </div>

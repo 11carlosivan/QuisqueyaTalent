@@ -393,3 +393,63 @@ model StorageGuard {
   @@map("storage_guard")
 }
 
+enum AiQueueStatus {
+  PENDING
+  PROCESSED
+  PUBLISHED
+  DRAFT
+  DISCARDED
+  FAILED
+}
+
+model InstagramSource {
+  id             String        @id @default(uuid())
+  username       String        @unique
+  profileUrl     String
+  lastScannedAt  DateTime?
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  queueItems     AiJobQueue[]
+
+  @@map("instagram_sources")
+}
+
+model AiJobQueue {
+  id               String         @id @default(uuid())
+  sourceId         String?
+  instagramPostId  String?        @unique
+  postUrl          String?
+  postDate         DateTime?
+  imageUrl         String?        @db.Text
+  captionText      String?        @db.Text
+  isJobOffer       Boolean        @default(true)
+  status           AiQueueStatus  @default(PENDING)
+  extractedData    String?        @db.Text
+  error            String?        @db.Text
+  jobId            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  processedAt      DateTime?
+  publishedAt      DateTime?
+
+  source           InstagramSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("ai_job_queue")
+}
+
+model AiJobSetting {
+  id                 String    @id @default("default")
+  isActive           Boolean   @default(false)
+  jobsPerHour        Int       @default(2)
+  publishMode        String    @default("DRAFT")
+  maxDaysOld         Int       @default(30)
+  officialCompanyId  String?
+  lastRunAt          DateTime?
+  updatedAt          DateTime  @updatedAt
+
+  @@map("ai_job_settings")
+}
+

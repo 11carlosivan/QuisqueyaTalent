@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Logo from './Logo';
 import { useAuth } from '../lib/auth-context';
 import { API_URL } from '../lib/api';
-import { Sparkles, Briefcase, FileText, Building2, UserCircle, LogOut, ShieldCheck, Menu, X, Plus, User, Users } from 'lucide-react';
+import { Sparkles, Briefcase, FileText, Building2, UserCircle, LogOut, ShieldCheck, Menu, X, Plus, User, Users, Bot } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -114,13 +114,25 @@ export const Navbar: React.FC = () => {
 
           {/* Enlace destacado de Admin si está autenticado como administrador */}
           {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
-            <Link
-              href="/admin"
-              className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5"
-            >
-              <ShieldCheck className="w-4 h-4 text-amber-600" />
-              Panel Administrativo
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin"
+                className="text-xs font-black text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-blue-600/20"
+              >
+                <Bot className="w-4 h-4 text-amber-300" />
+                Publicador IA
+                <span className="bg-amber-400 text-slate-950 text-[9px] font-black px-1 py-0.2 rounded-full">
+                  AUTO
+                </span>
+              </Link>
+              <Link
+                href="/admin"
+                className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5"
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                Centro de Mando
+              </Link>
+            </div>
           )}
         </nav>
 
@@ -252,13 +264,22 @@ export const Navbar: React.FC = () => {
             Publicar Vacante
           </Link>
           {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
-            <Link
-              href="/admin"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-amber-800 font-bold py-2 px-3 rounded-lg bg-amber-50"
-            >
-              Panel Administrativo (Super Admin)
-            </Link>
+            <>
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-white font-black py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 shadow-xs"
+              >
+                🤖 Publicador IA (Instagram)
+              </Link>
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-amber-800 font-bold py-2 px-3 rounded-lg bg-amber-50"
+              >
+                🛡️ Centro de Mando Administrativo
+              </Link>
+            </>
           )}
         </div>
       )}

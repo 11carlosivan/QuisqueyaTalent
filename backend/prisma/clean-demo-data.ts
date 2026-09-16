@@ -112,9 +112,47 @@ async function main() {
   const adSlots = await prisma.adSlot.deleteMany({});
   console.log(`🗑️  AdSlots eliminados: ${adSlots.count}`);
 
+  // 14. Crear / Conservar la Empresa Oficial "Quisqueya Talent" vinculada al Admin
+  const officialCompany = await prisma.company.upsert({
+    where: { slug: 'quisqueyatalent' },
+    update: { isVerified: true },
+    create: {
+      name: 'Quisqueya Talent',
+      slug: 'quisqueyatalent',
+      rnc: '101000001',
+      industry: 'Servicios de Empleo y Reclutamiento',
+      description:
+        'Cuenta oficial y verificada de Quisqueya Talent. Publicamos oportunidades laborales y vacantes verificadas para conectar el mejor talento de la República Dominicana con organizaciones líderes.',
+      logoUrl: '/uploads/logo-quisqueya-talent.png',
+      province: 'Distrito Nacional',
+      city: 'Santo Domingo',
+      address: 'Av. Winston Churchill, Santo Domingo, D.N.',
+      email: 'contacto@quisqueyatalent.com.do',
+      phone: '+1 809-555-0100',
+      websiteUrl: 'https://quisqueyatalent.com.do',
+      isVerified: true,
+    },
+  });
+
+  await prisma.companyMember.upsert({
+    where: {
+      companyId_userId: {
+        companyId: officialCompany.id,
+        userId: admin.id,
+      },
+    },
+    update: { role: Role.COMPANY_OWNER },
+    create: {
+      companyId: officialCompany.id,
+      userId: admin.id,
+      role: Role.COMPANY_OWNER,
+    },
+  });
+  console.log(`🏛️  Empresa oficial Quisqueya Talent asegurada y vinculada a ${ADMIN_EMAIL}`);
+
   console.log('');
   console.log('🎉 Limpieza completada exitosamente.');
-  console.log(`✅ Base de datos limpia. Solo queda: ${ADMIN_EMAIL} (SUPER_ADMIN)`);
+  console.log(`✅ Base de datos limpia. Cuenta oficial Quisqueya Talent vinculada a ${ADMIN_EMAIL} (SUPER_ADMIN)`);
 }
 
 main()

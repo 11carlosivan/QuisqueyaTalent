@@ -1,10 +1,50 @@
 import { Router, Request, Response } from 'express';
+import { Role } from '@prisma/client';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { AIService } from './ai.service';
-import { authenticate } from '../../middleware/auth';
+import { InstagramScraperService } from './instagram-scraper.service';
+import { AIQueueService } from './ai-queue.service';
+import prisma from '../../config/prisma';
+import { authenticate, requireRole } from '../../middleware/auth';
 
 const router = Router();
 
-// Mejorar sección de CV con IA
+// Configuración de multer para subida manual de capturas o imágenes de vacantes
+const uploadsDir = path.join(process.cwd(), 'uploads', 'ai-jobs');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = `job-flyer-${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`;
+    cb(null, uniqueName);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB máximo
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten archivos de imagen'));
+    }
+  },
+});
+
+// ============================================================
+// RUTAS GENERALES DE ASISTENCIA IA (Candidatos y Empresas)
+// ============================================================
+
+// 1. Mejorar sección de CV con IA
 router.post('/improve-resume', authenticate, async (req: Request, res: Response) => {
   try {
     const { text, type = 'experience' } = req.body;
@@ -19,7 +59,7 @@ router.post('/improve-resume', authenticate, async (req: Request, res: Response)
   }
 });
 
-// Asistente para redactar vacante
+// 2. Asistente para redactar vacante
 router.post('/generate-job', authenticate, async (req: Request, res: Response) => {
   try {
     const { title, province, experienceLevel, industry } = req.body;
@@ -34,7 +74,7 @@ router.post('/generate-job', authenticate, async (req: Request, res: Response) =
   }
 });
 
-// Generar copys y contenido para redes sociales
+// 3. Generar copys y contenido para redes sociales
 router.post('/generate-social', authenticate, async (req: Request, res: Response) => {
   try {
     const { title, company, province, salary, type } = req.body;
@@ -49,7 +89,7 @@ router.post('/generate-social', authenticate, async (req: Request, res: Response
   }
 });
 
-// Generar carta de presentación
+// 4. Generar carta de presentación
 router.post('/generate-cover-letter', authenticate, async (req: Request, res: Response) => {
   try {
     const { jobTitle, companyName } = req.body;
@@ -61,5 +101,178 @@ router.post('/generate-cover-letter', authenticate, async (req: Request, res: Re
     return res.status(500).json({ error: 'Error al generar carta de presentación' });
   }
 });
+
+// ============================================================
+// RUTAS EXCLUSIVAS DEL SUPER ADMIN: PUBLICADOR AUTOMATIZADO CON IA
+// ============================================================
+
+// 5. Obtener configuración del publicador IA y empresa oficial
+router.get('/publisher/settings', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
+  try {
+    const settings = await AIQueueService.getSettings();
+    return res.json(settings);
+  } catch (error: any) {
+    console.error('Error obteniendo settings de publicador IA:', error);
+    return res.status(500).json({ error: 'Error al consultar la configuración' });
+  }
+});
+
+// 6. Actualizar configuración (Pausar/Reanudar, Vacantes por hora, Modo Borrador/Automático)
+router.patch('/publisher/settings', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const { isActive, jobsPerHour, publishMode, maxDaysOld } = req.body;
+    const updated = await AIQueueService.updateSettings({
+      isActive,
+      jobsPerHour,
+      publishMode,
+      maxDaysOld,
+    });
+    return res.json({ message: 'Configuración actualizada exitosamente', settings: updated });
+  } catch (error: any) {
+    console.error('Error actualizando settings de publicador IA:', error);
+    return res.status(500).json({ error: 'Error al actualizar la configuración' });
+  }
+});
+
+// 7. Escanear perfil de Instagram (aplica filtro de 1 mes y deduplicación)
+router.post('/publisher/scan-profile', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const { profileUrl } = req.body;
+    if (!profileUrl) {
+      return res.status(400).json({ error: 'Debes proporcionar la URL o @usuario del perfil de Instagram' });
+    }
+
+    const settings = await AIQueueService.getSettings();
+    const result = await InstagramScraperService.scanAndEnqueue(profileUrl, settings.maxDaysOld || 30);
+
+    return res.json({
+      message: `Escaneo completado para @${result.username}`,
+      result,
+    });
+  } catch (error: any) {
+    console.error('Error escaneando perfil de Instagram:', error);
+    return res.status(500).json({ error: error.message || 'Error al escanear perfil de Instagram' });
+  }
+});
+
+// 8. Listar fuentes/perfiles de Instagram monitoreados
+router.get('/publisher/sources', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
+  try {
+    const sources = await prisma.instagramSource.findMany({
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        _count: { select: { queueItems: true } },
+      },
+    });
+    return res.json(sources);
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al listar perfiles de Instagram' });
+  }
+});
+
+// 9. Eliminar un perfil de Instagram monitoreado
+router.delete('/publisher/sources/:id', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    await prisma.instagramSource.delete({ where: { id } });
+    return res.json({ message: 'Perfil eliminado del monitoreo' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al eliminar perfil' });
+  }
+});
+
+// 10. Listar la cola de vacantes (con paginación, filtros y conteos)
+router.get('/publisher/queue', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const { status, page = '1', limit = '20' } = req.query;
+    const queue = await AIQueueService.getQueue(
+      status as string,
+      parseInt(page as string),
+      parseInt(limit as string)
+    );
+    return res.json(queue);
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al consultar la cola de vacantes' });
+  }
+});
+
+// 11. Ejecutar de inmediato la siguiente vacante en cola (Botón "Publicar 1 Ahora")
+router.post('/publisher/run-now', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
+  try {
+    const result = await AIQueueService.processNextPending();
+    if (!result) {
+      return res.status(404).json({ error: 'No hay vacantes pendientes en la cola' });
+    }
+    return res.json({
+      message: 'Vacante procesada y generada exitosamente',
+      result,
+    });
+  } catch (error: any) {
+    console.error('Error procesando vacante inmediata:', error);
+    return res.status(500).json({ error: error.message || 'Error al procesar la vacante' });
+  }
+});
+
+// 12. Aprobar y publicar un borrador generado por la IA
+router.post('/publisher/publish-draft/:id', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const updated = await AIQueueService.publishDraft(id);
+    return res.json({ message: 'Vacante publicada exitosamente en vivo', item: updated });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Error al publicar borrador' });
+  }
+});
+
+// 13. Eliminar elemento de la cola
+router.delete('/publisher/queue/:id', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    await AIQueueService.deleteQueueItem(id);
+    return res.json({ message: 'Elemento eliminado de la cola' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al eliminar elemento de la cola' });
+  }
+});
+
+// 14. Encolar manualmente texto o imagen subida (Respaldo por si Instagram bloquea IP)
+router.post(
+  '/publisher/manual-enqueue',
+  authenticate,
+  requireRole(Role.ADMIN, Role.SUPER_ADMIN),
+  upload.single('flyer'),
+  async (req: Request, res: Response) => {
+    try {
+      const { caption, postUrl } = req.body;
+      const file = req.file;
+
+      if (!caption && !file) {
+        return res.status(400).json({ error: 'Debes proporcionar al menos texto o una imagen de la vacante' });
+      }
+
+      const imageUrl = file ? `/uploads/ai-jobs/${file.filename}` : null;
+      const uniqueId = `manual-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+      const item = await prisma.aiJobQueue.create({
+        data: {
+          instagramPostId: uniqueId,
+          postUrl: postUrl || null,
+          postDate: new Date(),
+          imageUrl,
+          captionText: caption || 'Vacante ingresada manualmente para redacción con IA',
+          status: 'PENDING',
+        },
+      });
+
+      return res.status(201).json({
+        message: 'Vacante encolada para procesamiento con IA',
+        item,
+      });
+    } catch (error: any) {
+      console.error('Error encolando manualmente:', error);
+      return res.status(500).json({ error: 'Error al encolar la vacante' });
+    }
+  }
+);
 
 export default router;
