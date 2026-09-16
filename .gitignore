@@ -35,8 +35,10 @@ icono.jpeg
 icono.png
 logo.png
 *quisqueya*talent*.png
-personaje.jpeg
-*instagram*
+*personaje.jpeg
+imagen instagram *.jpeg
+icono instagram.png
+!backend/src/modules/ai/instagram-scraper.service.ts
 
 # Archivos subidos por usuarios
 backend/uploads/*
