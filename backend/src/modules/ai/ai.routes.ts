@@ -235,42 +235,66 @@ router.delete('/publisher/queue/:id', authenticate, requireRole(Role.ADMIN, Role
   }
 });
 
-// 14. Encolar manualmente texto o imagen subida (Respaldo por si Instagram bloquea IP)
+// 14. Encolar manualmente o por lote capturas / textos de vacantes
 router.post(
   '/publisher/manual-enqueue',
   authenticate,
   requireRole(Role.ADMIN, Role.SUPER_ADMIN),
-  upload.single('flyer'),
+  upload.array('flyers', 20),
   async (req: Request, res: Response) => {
     try {
       const { caption, postUrl } = req.body;
-      const file = req.file;
+      const files = (req.files as Express.Multer.File[]) || [];
 
-      if (!caption && !file) {
-        return res.status(400).json({ error: 'Debes proporcionar al menos texto o una imagen de la vacante' });
+      if (!caption && files.length === 0) {
+        return res.status(400).json({ error: 'Debes proporcionar al menos texto o subir una o más capturas de vacantes' });
       }
 
-      const imageUrl = file ? `/uploads/ai-jobs/${file.filename}` : null;
-      const uniqueId = `manual-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      const createdItems: any[] = [];
 
-      const item = await prisma.aiJobQueue.create({
-        data: {
-          instagramPostId: uniqueId,
-          postUrl: postUrl || null,
-          postDate: new Date(),
-          imageUrl,
-          captionText: caption || 'Vacante ingresada manualmente para redacción con IA',
-          status: 'PENDING',
-        },
-      });
+      // Si subió archivos de capturas/flyers
+      if (files.length > 0) {
+        for (const file of files) {
+          const imageUrl = `/uploads/ai-jobs/${file.filename}`;
+          const uniqueId = `flyer-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+
+          const item = await prisma.aiJobQueue.create({
+            data: {
+              instagramPostId: uniqueId,
+              postUrl: postUrl || null,
+              postDate: new Date(),
+              imageUrl,
+              captionText: caption || `Captura de vacante de Instagram: ${file.originalname}`,
+              status: 'PENDING',
+              isJobOffer: true,
+            },
+          });
+          createdItems.push(item);
+        }
+      } else if (caption) {
+        // Si ingresó texto solamente
+        const uniqueId = `text-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+        const item = await prisma.aiJobQueue.create({
+          data: {
+            instagramPostId: uniqueId,
+            postUrl: postUrl || null,
+            postDate: new Date(),
+            imageUrl: null,
+            captionText: caption.trim(),
+            status: 'PENDING',
+            isJobOffer: true,
+          },
+        });
+        createdItems.push(item);
+      }
 
       return res.status(201).json({
-        message: 'Vacante encolada para procesamiento con IA',
-        item,
+        message: `${createdItems.length} vacante(s) encolada(s) para procesamiento y redacción con IA`,
+        items: createdItems,
       });
     } catch (error: any) {
-      console.error('Error encolando manualmente:', error);
-      return res.status(500).json({ error: 'Error al encolar la vacante' });
+      console.error('Error encolando capturas:', error);
+      return res.status(500).json({ error: 'Error al encolar las vacantes' });
     }
   }
 );

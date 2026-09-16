@@ -63,7 +63,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
 
   // Manual upload state
   const [manualCaption, setManualCaption] = useState('');
-  const [manualFile, setManualFile] = useState<File | null>(null);
+  const [manualFiles, setManualFiles] = useState<File[]>([]);
   const [uploadingManual, setUploadingManual] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
 
@@ -183,10 +183,17 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(
-          `Perfil @${data.result.username} analizado: ${data.result.newEnqueued} vacantes nuevas encoladas (< 30 días). ${data.result.skippedDuplicates} repetidas omitidas.`,
-          'Escaneo Completado'
-        );
+        if (data.result.newEnqueued === 0) {
+          toast.info(
+            `Instagram no devolvió publicaciones públicas para @${data.result.username} (bloqueo anti-bot de Meta). Arrastra las capturas de pantalla en la zona superior para redactarlas con IA al instante.`,
+            'Aviso de Instagram'
+          );
+        } else {
+          toast.success(
+            `Perfil @${data.result.username} analizado: ${data.result.newEnqueued} vacantes nuevas encoladas (< 30 días). ${data.result.skippedDuplicates} repetidas omitidas.`,
+            'Escaneo Completado'
+          );
+        }
         setProfileInput('');
         await fetchData();
       } else {
@@ -267,19 +274,19 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
     }
   };
 
-  // Encolar manualmente con imagen o texto
-  const handleManualEnqueue = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!manualCaption.trim() && !manualFile) {
-      toast.warning('Ingresa texto o selecciona una imagen de la vacante', 'Datos requeridos');
+  // Subida por lote de múltiples capturas / screenshots de Instagram
+  const handleUploadBatch = async () => {
+    if (manualFiles.length === 0) {
+      toast.warning('Selecciona al menos una imagen de vacante', 'Archivos requeridos');
       return;
     }
 
     try {
       setUploadingManual(true);
       const formData = new FormData();
-      if (manualCaption.trim()) formData.append('caption', manualCaption.trim());
-      if (manualFile) formData.append('flyer', manualFile);
+      manualFiles.forEach((file) => {
+        formData.append('flyers', file);
+      });
 
       const res = await fetch(`${API_URL}/api/ai/publisher/manual-enqueue`, {
         method: 'POST',
@@ -289,16 +296,17 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success('Vacante agregada a la cola para redacción con IA', 'Encolada con Éxito');
-        setManualCaption('');
-        setManualFile(null);
-        setShowManualForm(false);
+        toast.success(
+          `${manualFiles.length} vacante(s) agregada(s) a la cola para redacción con IA`,
+          'Encoladas con Éxito'
+        );
+        setManualFiles([]);
         await fetchData();
       } else {
-        toast.error(data.error || 'Error al encolar vacante', 'Error');
+        toast.error(data.error || 'Error al encolar vacantes', 'Error');
       }
     } catch (e) {
-      toast.error('Error al subir vacante', 'Error');
+      toast.error('Error al subir capturas', 'Error');
     } finally {
       setUploadingManual(false);
     }
@@ -527,118 +535,149 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
       </div>
 
       {/* 3. MONITOREO DE PERFILES DE INSTAGRAM & ESCANEO INTELIGENTE */}
+      {/* 3. INGESTA INTELIGENTE: CAPTURAS DE INSTAGRAM & ESCANEO DE PERFILES */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <InstagramIcon className="w-5 h-5 text-pink-600" />
+              <Sparkles className="w-5 h-5 text-blue-600" />
               <h3 className="text-lg font-black text-slate-900 font-['Plus_Jakarta_Sans']">
-                Escanear Perfil de Instagram con IA
+                Ingesta de Vacantes para Redactar con IA
               </h3>
             </div>
             <p className="text-xs text-slate-500">
-              Ingresa el enlace del perfil (ej. <code className="bg-slate-100 px-1.5 py-0.5 rounded text-blue-600">https://instagram.com/empleos_rd</code> o <code className="bg-slate-100 px-1.5 py-0.5 rounded text-blue-600">@vacantesrd</code>).
-              El bot filtrará publicaciones menores a 1 mes y omitirá repetidas.
+              Sube capturas de pantalla de posts de Instagram (las imágenes que guardes o descargues) o escanea el perfil directamente.
+            </p>
+          </div>
+        </div>
+
+        {/* Zona 1: Subida Múltiple de Capturas / Screenshots de Instagram (Infalible) */}
+        <div className="bg-gradient-to-br from-blue-50/50 via-slate-50 to-indigo-50/30 border-2 border-dashed border-blue-200 hover:border-blue-400 rounded-3xl p-6 sm:p-8 text-center transition space-y-4">
+          <div className="max-w-md mx-auto space-y-2">
+            <div className="w-14 h-14 bg-white rounded-2xl shadow-xs border border-blue-100 flex items-center justify-center mx-auto text-blue-600">
+              <UploadCloud className="w-7 h-7" />
+            </div>
+            <h4 className="font-black text-slate-900 text-base">
+              Arrastra aquí tus capturas o flyers de Instagram
+            </h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Selecciona una o varias imágenes a la vez (hasta 20 capturas). La IA analizará cada imagen, extraerá los requisitos, responsabilidades, salarios y correos de RRHH automáticamente.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowManualForm(!showManualForm)}
-            className="text-xs font-bold text-slate-600 hover:text-blue-600 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer shrink-0"
-          >
-            <UploadCloud className="w-4 h-4" /> {showManualForm ? 'Ocultar Carga Manual' : 'Cargar Flyer/Captura Manual'}
-          </button>
-        </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <label className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-6 py-3 rounded-2xl shadow-md shadow-blue-600/20 transition cursor-pointer flex items-center gap-2">
+              <UploadCloud className="w-4 h-4" />
+              Seleccionar Imágenes ({manualFiles.length > 0 ? `${manualFiles.length} seleccionadas` : 'Subir Capturas'})
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) {
+                    const newFiles = Array.from(e.target.files);
+                    setManualFiles((prev) => [...prev, ...newFiles]);
+                  }
+                }}
+              />
+            </label>
 
-        {/* Formulario de Escaneo de Perfil */}
-        <form onSubmit={handleScanProfile} className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <InstagramIcon className="w-4 h-4" />
-            </div>
-            <input
-              type="text"
-              value={profileInput}
-              onChange={(e) => setProfileInput(e.target.value)}
-              placeholder="https://www.instagram.com/perfil_de_empleos/ o @perfil_de_empleos"
-              className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
-            />
+            {manualFiles.length > 0 && (
+              <button
+                type="button"
+                onClick={handleUploadBatch}
+                disabled={uploadingManual}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-6 py-3 rounded-2xl shadow-md shadow-emerald-600/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {uploadingManual ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Encolando Vacantes...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-amber-300" /> Encolar {manualFiles.length} Vacantes con IA
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
-          <button
-            type="submit"
-            disabled={scanning || !profileInput.trim()}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs px-6 py-3 rounded-2xl transition flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer shrink-0"
-          >
-            {scanning ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" /> Escaneando Perfil...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" /> Escanear y Encolar Vacantes
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Formulario Opcional: Subida Manual de Captura/Flyer */}
-        {showManualForm && (
-          <form
-            onSubmit={handleManualEnqueue}
-            className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-4 sm:p-6 space-y-4 animate-in fade-in duration-200"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                📎 Ingesta Manual de Captura o Texto de Vacante (Respaldo)
-              </span>
-              <span className="text-[11px] text-slate-500">Útil si Instagram bloquea el scraping web</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Imagen del Flyer o Captura</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setManualFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Texto o Pie de Foto (Caption) de la Vacante
-                </label>
-                <textarea
-                  rows={2}
-                  value={manualCaption}
-                  onChange={(e) => setManualCaption(e.target.value)}
-                  placeholder="Pega aquí el texto de la vacante, requisitos, correo para postularse..."
-                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end">
+          {/* Miniaturas de Archivos Seleccionados */}
+          {manualFiles.length > 0 && (
+            <div className="pt-4 border-t border-slate-200/60 flex flex-wrap gap-2 justify-center">
+              {manualFiles.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-700 shadow-2xs"
+                >
+                  <span className="truncate max-w-[150px]">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setManualFiles((prev) => prev.filter((_, i) => i !== idx))}
+                    className="text-slate-400 hover:text-rose-600 font-black ml-1"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
               <button
-                type="submit"
-                disabled={uploadingManual}
-                className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                type="button"
+                onClick={() => setManualFiles([])}
+                className="text-xs text-rose-600 font-bold hover:underline px-2 py-1"
               >
-                {uploadingManual ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
-                Encolar para Redactar con IA
+                Limpiar selección
               </button>
             </div>
+          )}
+        </div>
+
+        {/* Zona 2: Escaneo Web de Perfiles de Instagram */}
+        <div className="pt-4 border-t border-slate-100 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <InstagramIcon className="w-4 h-4 text-pink-600" /> O intenta escanear enlace de perfil directamente:
+            </span>
+            <span className="text-[11px] text-slate-400">Filtro automático de &lt; 30 días</span>
+          </div>
+
+          <form onSubmit={handleScanProfile} className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <InstagramIcon className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                value={profileInput}
+                onChange={(e) => setProfileInput(e.target.value)}
+                placeholder="https://www.instagram.com/perfil_de_empleos/ o @perfil_de_empleos"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={scanning || !profileInput.trim()}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs px-6 py-3 rounded-2xl transition flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer shrink-0"
+            >
+              {scanning ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Escaneando Perfil...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" /> Escanear Perfil
+                </>
+              )}
+            </button>
           </form>
-        )}
+        </div>
 
         {/* Perfiles Monitoreados */}
         {sources.length > 0 && (
           <div className="pt-2 border-t border-slate-100">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-              Perfiles Monitoreados ({sources.length})
+              Perfiles Registrados ({sources.length})
             </span>
             <div className="flex flex-wrap gap-2">
               {sources.map((s) => (
@@ -648,7 +687,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                 >
                   <InstagramIcon className="w-3.5 h-3.5 text-pink-600" />
                   <span className="font-bold">@{s.username}</span>
-                  <span className="text-[10px] text-slate-400">({s._count?.queueItems || 0} posts)</span>
+                  <span className="text-[10px] text-slate-400">({s._count?.queueItems || 0} vacantes en cola)</span>
                   <a
                     href={s.profileUrl}
                     target="_blank"
