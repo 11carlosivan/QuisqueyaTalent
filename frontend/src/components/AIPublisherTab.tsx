@@ -28,6 +28,8 @@ import {
   Link as LinkIcon,
   Save,
   Activity,
+  Edit3,
+  X,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -82,6 +84,26 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
   const [uploadingManual, setUploadingManual] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const [publishingAll, setPublishingAll] = useState(false);
+
+  // Queue item edit & re-extraction state
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    companyName: '',
+    category: '',
+    province: '',
+    applyEmail: '',
+    salaryMin: '',
+    salaryMax: '',
+    description: '',
+    responsibilities: '',
+    requirements: '',
+    benefits: '',
+    status: 'PENDING',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [reExtractingId, setReExtractingId] = useState<string | null>(null);
+  const [reExtractingAll, setReExtractingAll] = useState(false);
 
   // Cargar datos del publicador
   const fetchData = async () => {
@@ -558,6 +580,135 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
     }
   };
 
+  // Abrir modal de edición de vacante en cola
+  const handleOpenEdit = (item: any) => {
+    let extracted: any = {};
+    try {
+      if (item.extractedData) extracted = JSON.parse(item.extractedData);
+    } catch (e) {}
+
+    setEditForm({
+      title: extracted.title || '',
+      companyName: extracted.companyName || 'Quisqueya Talent',
+      category: extracted.category || 'Otros',
+      province: extracted.province || 'Santo Domingo',
+      applyEmail: extracted.applyEmail || '',
+      salaryMin: extracted.salaryMin ? String(extracted.salaryMin) : '',
+      salaryMax: extracted.salaryMax ? String(extracted.salaryMax) : '',
+      description: extracted.description || item.captionText || '',
+      responsibilities: extracted.responsibilities || '',
+      requirements: extracted.requirements || '',
+      benefits: extracted.benefits || '',
+      status: item.status || 'PENDING',
+    });
+    setEditingItem(item);
+  };
+
+  // Guardar corrección manual de una vacante en cola
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    if (!editForm.title.trim()) {
+      toast.warning('El título de la vacante es obligatorio', 'Campo Requerido');
+      return;
+    }
+
+    try {
+      setSavingEdit(true);
+      const res = await fetch(`${API_URL}/api/ai/publisher/queue/${editingItem.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: editForm.title.trim(),
+          companyName: editForm.companyName.trim(),
+          category: editForm.category.trim(),
+          province: editForm.province.trim(),
+          applyEmail: editForm.applyEmail.trim() || undefined,
+          salaryMin: editForm.salaryMin ? Number(editForm.salaryMin) : null,
+          salaryMax: editForm.salaryMax ? Number(editForm.salaryMax) : null,
+          description: editForm.description.trim(),
+          responsibilities: editForm.responsibilities.trim(),
+          requirements: editForm.requirements.trim(),
+          benefits: editForm.benefits.trim(),
+          status: editForm.status,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Vacante corregida: "${editForm.title}"`, 'Cambios Guardados');
+        setEditingItem(null);
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Error al guardar cambios', 'Error');
+      }
+    } catch (err) {
+      toast.error('Error de conexión al guardar cambios', 'Error');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Re-analizar una vacante individual con el motor IA mejorado
+  const handleReExtractSingle = async (queueId: string) => {
+    try {
+      setReExtractingId(queueId);
+      const res = await fetch(`${API_URL}/api/ai/publisher/queue/${queueId}/re-extract`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const title = data.result?.extractedData?.title || 'Vacante';
+        toast.success(`Título y detalles re-analizados: "${title}"`, 'Re-análisis Exitoso');
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Error al re-analizar vacante', 'Error');
+      }
+    } catch (err) {
+      toast.error('Error de conexión', 'Error');
+    } finally {
+      setReExtractingId(null);
+    }
+  };
+
+  // Re-analizar en lote toda la cola para corregir títulos erróneos
+  const handleReExtractAll = async () => {
+    if (!confirm('¿Deseas re-analizar con IA todas las vacantes en cola para corregir automáticamente los títulos y categorías?')) {
+      return;
+    }
+    try {
+      setReExtractingAll(true);
+      const res = await fetch(`${API_URL}/api/ai/publisher/queue/re-extract-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(
+          data.message || 'Vacantes en cola actualizadas con sus títulos correctos.',
+          'Re-análisis en Lote Exitoso'
+        );
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Error al re-analizar lote', 'Error');
+      }
+    } catch (err) {
+      toast.error('Error de red', 'Error');
+    } finally {
+      setReExtractingAll(false);
+    }
+  };
+
   // Subida por lote de múltiples capturas / screenshots de Instagram
   const handleUploadBatch = async () => {
     if (manualFiles.length === 0) {
@@ -720,8 +871,25 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
             </button>
 
             <button
+              onClick={handleReExtractAll}
+              disabled={reExtractingAll || runningNow || publishingAll || (counts.pending === 0 && counts.draft === 0)}
+              className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-400 text-white px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shadow-lg cursor-pointer disabled:cursor-not-allowed"
+              title="Re-analiza todas las vacantes en cola para corregir automáticamente los títulos asignados"
+            >
+              {reExtractingAll ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Corrigiendo Títulos...
+                </>
+              ) : (
+                <>
+                  <Bot className="w-3.5 h-3.5 text-indigo-200" /> Corregir Títulos con IA ({counts.pending + counts.draft})
+                </>
+              )}
+            </button>
+
+            <button
               onClick={handlePublishAllPending}
-              disabled={publishingAll || runningNow || (counts.pending === 0 && counts.draft === 0)}
+              disabled={publishingAll || runningNow || reExtractingAll || (counts.pending === 0 && counts.draft === 0)}
               className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-400 text-white px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shadow-lg cursor-pointer disabled:cursor-not-allowed"
               title="Procesa todas las vacantes en cola y las publica de inmediato en la bolsa de empleo"
             >
@@ -1526,7 +1694,31 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                       <span className="text-[10px] text-slate-400">Ingreso Manual</span>
                     )}
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(item)}
+                        className="bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 font-bold text-xs px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 cursor-pointer"
+                        title="Corregir título, empresa o detalles manualmente"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" /> Editar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleReExtractSingle(item.id)}
+                        disabled={reExtractingId === item.id}
+                        className="bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 font-bold text-xs px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        title="Re-analizar texto con IA para corregir el título automáticamente"
+                      >
+                        {reExtractingId === item.id ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Bot className="w-3.5 h-3.5" />
+                        )}
+                        <span>Re-analizar</span>
+                      </button>
+
                       {item.status === 'DRAFT' && (
                         <button
                           onClick={() => handlePublishDraft(item.id)}
@@ -1554,6 +1746,201 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
           </div>
         )}
       </div>
+
+      {/* 5. MODAL DE EDICIÓN / CORRECCIÓN MANUAL DE VACANTE EN COLA */}
+      {editingItem && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header del modal */}
+            <div className="bg-slate-900 text-white p-6 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-black text-base">Corregir Datos de la Vacante</h4>
+                  <p className="text-xs text-slate-400">Ajusta el título, empresa o detalles antes de publicar</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Formulario */}
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Texto original de Instagram */}
+              {editingItem.captionText && (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Texto original capturado de Instagram:
+                  </span>
+                  <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed italic">
+                    "{editingItem.captionText}"
+                  </p>
+                </div>
+              )}
+
+              {/* Título de la Vacante */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                  Título del Puesto <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ej: Panadero / Repostero, Chofer Cat. 3, Cajera..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+
+              {/* Empresa y Categoría */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                    Empresa
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.companyName}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, companyName: e.target.value }))}
+                    placeholder="Quisqueya Talent o Empresa cliente"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                    Categoría
+                  </label>
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                  >
+                    <option value="Alimentos & Gastronomía">Alimentos & Gastronomía</option>
+                    <option value="Logística & Transporte">Logística & Transporte</option>
+                    <option value="Logística & Operaciones">Logística & Operaciones</option>
+                    <option value="Ventas & Comercio">Ventas & Comercio</option>
+                    <option value="Salud & Medicina">Salud & Medicina</option>
+                    <option value="Mantenimiento & Limpieza">Mantenimiento & Limpieza</option>
+                    <option value="Seguridad">Seguridad</option>
+                    <option value="Administración & Oficina">Administración & Oficina</option>
+                    <option value="Banca & Finanzas">Banca & Finanzas</option>
+                    <option value="Recursos Humanos">Recursos Humanos</option>
+                    <option value="Call Center & BPO">Call Center & BPO</option>
+                    <option value="Tecnología">Tecnología</option>
+                    <option value="Otros">Otros</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Provincia y Correo de Aplicación */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                    Provincia
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.province}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, province: e.target.value }))}
+                    placeholder="Santo Domingo, Santiago, etc."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                    Correo para enviar CV (Opcional)
+                  </label>
+                  <input
+                    type="email"
+                    value={editForm.applyEmail}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, applyEmail: e.target.value }))}
+                    placeholder="ejemplo@correo.com"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+              </div>
+
+              {/* Salarios */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                    Salario Mínimo (DOP)
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.salaryMin}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, salaryMin: e.target.value }))}
+                    placeholder="Ej: 30000"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                    Salario Máximo (DOP)
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.salaryMax}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, salaryMax: e.target.value }))}
+                    placeholder="Ej: 35000"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+              </div>
+
+              {/* Descripción */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                  Descripción
+                </label>
+                <textarea
+                  rows={3}
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600 leading-relaxed"
+                />
+              </div>
+
+              {/* Botones de acción del modal */}
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingItem(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-blue-600/20 cursor-pointer disabled:opacity-50"
+                >
+                  {savingEdit ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" /> Guardar Corrección
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

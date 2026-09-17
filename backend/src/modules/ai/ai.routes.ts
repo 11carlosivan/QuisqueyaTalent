@@ -360,6 +360,50 @@ router.delete('/publisher/queue/:id', authenticate, requireRole(Role.ADMIN, Role
   }
 });
 
+// 13.1 Actualizar manualmente datos de una vacante en cola (Título, Empresa, Categoría, Provincia, etc.)
+router.patch('/publisher/queue/:id', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const result = await AIQueueService.updateQueueItem(id, req.body);
+    return res.json({
+      message: 'Vacante actualizada correctamente en la cola',
+      result,
+    });
+  } catch (error: any) {
+    console.error('Error actualizando vacante de cola:', error);
+    return res.status(500).json({ error: error.message || 'Error al actualizar vacante' });
+  }
+});
+
+// 13.2 Re-analizar con IA una vacante específica en cola para corregir título y detalles
+router.post('/publisher/queue/:id/re-extract', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const result = await AIQueueService.reExtractQueueItem(id);
+    return res.json({
+      message: 'Vacante re-analizada exitosamente con IA',
+      result,
+    });
+  } catch (error: any) {
+    console.error('Error re-analizando vacante de cola:', error);
+    return res.status(500).json({ error: error.message || 'Error al re-analizar vacante' });
+  }
+});
+
+// 13.3 Re-analizar en lote todas las vacantes en cola para corregir títulos erróneos
+router.post('/publisher/queue/re-extract-all', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
+  try {
+    const result = await AIQueueService.reExtractAllPending();
+    return res.json({
+      message: `Re-análisis completado: ${result.updated} de ${result.total} vacantes actualizadas con los títulos y categorías correctos.`,
+      result,
+    });
+  } catch (error: any) {
+    console.error('Error re-analizando lote de cola:', error);
+    return res.status(500).json({ error: error.message || 'Error al re-analizar vacantes' });
+  }
+});
+
 // 14. Encolar manualmente o por lote capturas / textos de vacantes
 router.post(
   '/publisher/manual-enqueue',

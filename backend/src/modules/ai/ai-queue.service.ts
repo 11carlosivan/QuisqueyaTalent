@@ -558,6 +558,136 @@ export class AIQueueService {
       errors: errorCount,
     };
   }
+
+  /**
+   * Actualiza manualmente los datos extraídos de un elemento de la cola (título, empresa, provincia, categoría, etc.)
+   */
+  static async updateQueueItem(
+    id: string,
+    data: {
+      title?: string;
+      companyName?: string;
+      category?: string;
+      province?: string;
+      city?: string;
+      applyEmail?: string;
+      salaryMin?: number | null;
+      salaryMax?: number | null;
+      description?: string;
+      responsibilities?: string;
+      requirements?: string;
+      benefits?: string;
+      status?: 'PENDING' | 'DRAFT' | 'PUBLISHED' | 'DISCARDED';
+    }
+  ) {
+    const item = await prisma.aiJobQueue.findUnique({ where: { id } });
+    if (!item) {
+      throw new Error('Elemento de cola no encontrado');
+    }
+
+    let existingData: any = {};
+    if (item.extractedData) {
+      try {
+        existingData = JSON.parse(item.extractedData);
+      } catch (e) {}
+    }
+
+    const updatedData = {
+      ...existingData,
+      ...(data.title !== undefined && { title: data.title.trim() }),
+      ...(data.companyName !== undefined && { companyName: data.companyName.trim() }),
+      ...(data.category !== undefined && { category: data.category.trim() }),
+      ...(data.province !== undefined && { province: data.province.trim() }),
+      ...(data.city !== undefined && { city: data.city?.trim() || null }),
+      ...(data.applyEmail !== undefined && {
+        applyEmail: data.applyEmail?.trim() || null,
+        applyMethod: data.applyEmail?.trim() ? 'EMAIL' : 'PLATFORM',
+      }),
+      ...(data.salaryMin !== undefined && { salaryMin: data.salaryMin }),
+      ...(data.salaryMax !== undefined && { salaryMax: data.salaryMax }),
+      ...(data.description !== undefined && { description: data.description.trim() }),
+      ...(data.responsibilities !== undefined && { responsibilities: data.responsibilities.trim() }),
+      ...(data.requirements !== undefined && { requirements: data.requirements.trim() }),
+      ...(data.benefits !== undefined && { benefits: data.benefits.trim() }),
+    };
+
+    const updated = await prisma.aiJobQueue.update({
+      where: { id },
+      data: {
+        extractedData: JSON.stringify(updatedData),
+        ...(data.status && { status: data.status as any }),
+      },
+    });
+
+    return {
+      item: updated,
+      extractedData: updatedData,
+    };
+  }
+
+  /**
+   * Re-analiza con IA el caption y la imagen de un elemento de la cola para corregir su título y detalles
+   */
+  static async reExtractQueueItem(id: string) {
+    const item = await prisma.aiJobQueue.findUnique({ where: { id } });
+    if (!item) {
+      throw new Error('Elemento de cola no encontrado');
+    }
+
+    const jobData = await AIService.parseJobFromPost({
+      caption: item.captionText || '',
+      imageUrl: item.imageUrl || undefined,
+    });
+
+    const updated = await prisma.aiJobQueue.update({
+      where: { id },
+      data: {
+        extractedData: JSON.stringify(jobData),
+        isJobOffer: jobData.isJobOffer,
+      },
+    });
+
+    return {
+      item: updated,
+      extractedData: jobData,
+    };
+  }
+
+  /**
+   * Re-analiza en lote todos los elementos en cola para corregir falsos positivos y títulos erróneos
+   */
+  static async reExtractAllPending() {
+    const pendingItems = await prisma.aiJobQueue.findMany({
+      where: { status: { in: ['PENDING', 'DRAFT'] } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let updatedCount = 0;
+    for (const item of pendingItems) {
+      try {
+        const jobData = await AIService.parseJobFromPost({
+          caption: item.captionText || '',
+          imageUrl: item.imageUrl || undefined,
+        });
+
+        await prisma.aiJobQueue.update({
+          where: { id: item.id },
+          data: {
+            extractedData: JSON.stringify(jobData),
+            isJobOffer: jobData.isJobOffer,
+          },
+        });
+        updatedCount++;
+      } catch (err) {
+        console.error(`Error re-analizando cola ${item.id}:`, err);
+      }
+    }
+
+    return {
+      total: pendingItems.length,
+      updated: updatedCount,
+    };
+  }
 }
 
 export default AIQueueService;

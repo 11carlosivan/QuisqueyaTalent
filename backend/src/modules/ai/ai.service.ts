@@ -309,39 +309,101 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (
       workplaceType = 'HYBRID';
     }
 
-    // 5. Detectar Categoría y Título
+    // 5. Detectar Título y Categoría con Diccionario Dominicano Especializado
     let category = 'Administración & Oficina';
-    let title = 'Colaborador / Posición Vacante';
+    let title = '';
 
-    if (lower.includes('desarrollador') || lower.includes('programador') || lower.includes('software') || lower.includes('ti') || lower.includes('tecnología') || lower.includes('soporte técnico')) {
-      category = 'Tecnología';
-      title = lower.includes('desarrollador') ? 'Desarrollador de Software' : 'Especialista en Tecnología';
-    } else if (lower.includes('call center') || lower.includes('bilingüe') || lower.includes('bilingual') || lower.includes('servicio al cliente') || lower.includes('customer service')) {
-      category = 'Call Center & BPO';
-      title = lower.includes('bilingual') || lower.includes('bilingüe') ? 'Customer Service Representative (Bilingüe)' : 'Representante de Servicio al Cliente';
-    } else if (lower.includes('ventas') || lower.includes('comercial') || lower.includes('asesor') || lower.includes('vendedor')) {
-      category = 'Ventas & Comercio';
-      title = 'Asesor / Ejecutivo de Ventas';
-    } else if (lower.includes('contabilidad') || lower.includes('contador') || lower.includes('finanzas') || lower.includes('auditor')) {
-      category = 'Banca & Finanzas';
-      title = 'Asistente de Contabilidad / Finanzas';
-    } else if (lower.includes('almacén') || lower.includes('almacen') || lower.includes('chofer') || lower.includes('despacho') || lower.includes('inventario')) {
-      category = 'Logística & Operaciones';
-      title = 'Encargado de Almacén & Logística';
+    // A. Buscar primero patrones explícitos de título en el texto
+    const explicitTitleRegexes = [
+      /(?:vacante(?:s)?\s*(?:disponible(?:s)?)?:|puesto:|posici[oó]n:|se solicita:|se busca:|buscamos:?|solicitamos:?|requerimos:?)\s*([^\n\r,.;!]{3,60})/i,
+      /(?:^|\n)\s*(?:[🚨🔥💼📌✅📢👉]*\s*)?(?:se\s+busca|se\s+solicita|buscamos|solicitamos|vacante:?)\s+([^\n\r,.;!]{3,60})/i,
+    ];
+
+    for (const rx of explicitTitleRegexes) {
+      const match = text.match(rx);
+      if (match && match[1]) {
+        const candidate = match[1].replace(/^[^\wáéíóúñÁÉÍÓÚÑ]+|[^\wáéíóúñÁÉÍÓÚÑ]+$/g, '').trim();
+        if (candidate.length >= 3 && candidate.length <= 60 && !candidate.toLowerCase().includes('http') && !candidate.includes('@')) {
+          title = candidate;
+          break;
+        }
+      }
     }
 
-    // Intentar extraer una primera línea atractiva como título
-    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-    for (const line of lines) {
-      if (
-        (line.toLowerCase().includes('buscamos') ||
-          line.toLowerCase().includes('vacante:') ||
-          line.toLowerCase().includes('puesto:')) &&
-        line.length < 70
-      ) {
-        title = line.replace(/vacante:|puesto:|buscamos:?/gi, '').trim();
+    // B. Si no hay patrón explícito, buscar la primera línea que parezca un encabezado de vacante
+    if (!title) {
+      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+      for (const line of lines.slice(0, 5)) {
+        const cleanLine = line.replace(/^[🚨🔥💼📌✅📢👉*#•\-\s]+|[!*#\s]+$/g, '').trim();
+        if (
+          cleanLine.length >= 4 &&
+          cleanLine.length <= 50 &&
+          !cleanLine.toLowerCase().includes('http') &&
+          !cleanLine.includes('@') &&
+          !cleanLine.toLowerCase().includes('empleos_') &&
+          !cleanLine.toLowerCase().includes('república dominicana') &&
+          !cleanLine.toLowerCase().includes('republica dominicana') &&
+          !cleanLine.toLowerCase().includes('santo domingo') &&
+          !cleanLine.toLowerCase().includes('desliza') &&
+          !cleanLine.toLowerCase().includes('síguenos') &&
+          !cleanLine.toLowerCase().includes('etiqueta')
+        ) {
+          title = cleanLine;
+          break;
+        }
+      }
+    }
+
+    // C. Mapeo por palabras clave vocacionales dominicanas para títulos y categorías
+    const vocations: Array<{ pattern: RegExp; title: string; category: string }> = [
+      // Panadería y Pastelería
+      { pattern: /\b(panader[oa]|reposter[oa]|pastelero?|hornero)\b/i, title: 'Experto en Panadería / Repostería', category: 'Alimentos & Gastronomía' },
+      { pattern: /\b(cociner[oa]|chef|sous\s+chef|pizzero|ayudante\s+de\s+cocina|steward)\b/i, title: 'Cocinero / Personal de Cocina', category: 'Alimentos & Gastronomía' },
+      { pattern: /\b(meser[oa]|camarer[oa]|barista|bartender)\b/i, title: 'Mesero / Servicio Gastronómico', category: 'Alimentos & Gastronomía' },
+      
+      // Choferes y Transporte
+      { pattern: /\b(chofer\s+cat[.\s]*[234]|chofer\s+pesado|conductor|chofer)\b/i, title: 'Chofer Profesional', category: 'Logística & Transporte' },
+      { pattern: /\b(mensajer[oa]|delivery|motorizado)\b/i, title: 'Mensajero con Motor Propio', category: 'Logística & Transporte' },
+      { pattern: /\b(almac[eé]n|montacargas|montacarguista|estibador|despacho|inventario)\b/i, title: 'Auxiliar de Almacén & Logística', category: 'Logística & Operaciones' },
+
+      // Ventas y Comercio
+      { pattern: /\b(cajer[oa])\b/i, title: 'Cajero / Cajera', category: 'Ventas & Comercio' },
+      { pattern: /\b(asesor[a]?\s+de\s+ventas|ejecutiv[oa]\s+de\s+ventas|vendedor[a]?|promotor[a]?|mercaderista)\b/i, title: 'Ejecutivo / Asesor de Ventas', category: 'Ventas & Comercio' },
+
+      // Salud y Medicina
+      { pattern: /\b(enfermer[oa]|auxiliar\s+de\s+enfermer[ií]a)\b/i, title: 'Enfermero/a Profesional', category: 'Salud & Medicina' },
+      { pattern: /\b(m[eé]dic[oa]|asistente\s+dental|odont[oó]log[oa]|farmac[eé]utic[oa]|bioanalista)\b/i, title: 'Profesional del Área de Salud', category: 'Salud & Medicina' },
+
+      // Limpieza y Seguridad
+      { pattern: /\b(conserje|limpieza|mantenimiento|afanador)\b/i, title: 'Personal de Limpieza & Conserjería', category: 'Mantenimiento & Limpieza' },
+      { pattern: /\b(seguridad|vigilante|guardaespaldas|oficial\s+de\s+seguridad)\b/i, title: 'Oficial de Seguridad', category: 'Seguridad' },
+
+      // Administración y Oficina
+      { pattern: /\b(recepcionista|secretaria)\b/i, title: 'Recepcionista / Secretaria', category: 'Administración & Oficina' },
+      { pattern: /\b(asistente\s+administrativ[oa]|asistente\s+de\s+oficina)\b/i, title: 'Asistente Administrativo/a', category: 'Administración & Oficina' },
+      { pattern: /\b(contab|contador[a]?|auditor[a]?|finanzas)\b/i, title: 'Asistente de Contabilidad & Finanzas', category: 'Banca & Finanzas' },
+      { pattern: /\b(recursos\s+humanos|rrhh|gesti[oó]n\s+humana|reclutador)\b/i, title: 'Generalista de Recursos Humanos', category: 'Recursos Humanos' },
+
+      // Call Center & BPO
+      { pattern: /\b(call\s+center|bilingual|biling[uü]e|customer\s+service|chat\s+agent)\b/i, title: 'Representante de Servicio al Cliente (Bilingüe)', category: 'Call Center & BPO' },
+
+      // Tecnología (¡SOLO PALABRAS PRECISAS, NUNCA 'ti' A SECAS!)
+      { pattern: /\b(desarrollador|programador|software|soporte\s+t[eé]cnico|full\s+stack|frontend|backend|devops|ingeniero\s+de\s+sistemas)\b/i, title: 'Especialista en Desarrollo y Tecnología', category: 'Tecnología' },
+    ];
+
+    for (const voc of vocations) {
+      if (voc.pattern.test(lower)) {
+        category = voc.category;
+        if (!title || title.length > 50) {
+          title = voc.title;
+        }
         break;
       }
+    }
+
+    // Si aún no tenemos título específico
+    if (!title || title.length < 3) {
+      title = 'Colaborador / Posición Vacante';
     }
 
     // 6. Detectar salarios
