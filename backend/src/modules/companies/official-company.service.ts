@@ -25,7 +25,7 @@ export class OfficialCompanyService {
             industry: 'Servicios de Empleo y Reclutamiento',
             description:
               'Cuenta oficial y verificada de Quisqueya Talent. Publicamos oportunidades laborales y vacantes verificadas para conectar el mejor talento de la República Dominicana con organizaciones líderes.',
-            logoUrl: '/uploads/logo-quisqueya-talent.png',
+            logoUrl: '/logo-quisqueya-talent.png',
             province: 'Distrito Nacional',
             city: 'Santo Domingo',
             address: 'Av. Winston Churchill, Santo Domingo, D.N.',
@@ -37,11 +37,17 @@ export class OfficialCompanyService {
         });
         console.log(`🏛️ Empresa oficial Quisqueya Talent creada con ID: ${company.id}`);
       } else {
-        // Asegurar que esté verificada
-        if (!company.isVerified) {
+        // Asegurar que esté verificada y con la ruta del logo correcta
+        const updates: any = {};
+        if (!company.isVerified) updates.isVerified = true;
+        if (company.logoUrl !== '/logo-quisqueya-talent.png') {
+          updates.logoUrl = '/logo-quisqueya-talent.png';
+        }
+
+        if (Object.keys(updates).length > 0) {
           company = await prisma.company.update({
             where: { id: company.id },
-            data: { isVerified: true },
+            data: updates,
           });
         }
       }

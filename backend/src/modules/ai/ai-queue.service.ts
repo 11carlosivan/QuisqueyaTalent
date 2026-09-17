@@ -503,6 +503,61 @@ export class AIQueueService {
 
     return updated;
   }
+
+  /**
+   * Procesa y publica de inmediato todas las vacantes en cola (PENDING y DRAFT)
+   */
+  static async publishAllPending(): Promise<{
+    processed: number;
+    published: number;
+    discarded: number;
+    errors: number;
+  }> {
+    const pendingItems = await prisma.aiJobQueue.findMany({
+      where: {
+        status: { in: ['PENDING', 'DRAFT'] },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let publishedCount = 0;
+    let discardedCount = 0;
+    let errorCount = 0;
+
+    for (const item of pendingItems) {
+      try {
+        if (item.status === 'DRAFT' && item.jobId) {
+          await this.publishDraft(item.id);
+          publishedCount++;
+        } else {
+          const res = await this.processQueueItem(item.id, true);
+          if (res.status === 'PUBLISHED') {
+            publishedCount++;
+          } else if (res.status === 'DISCARDED') {
+            discardedCount++;
+          }
+        }
+      } catch (err) {
+        console.error(`Error procesando vacante en lote ${item.id}:`, err);
+        errorCount++;
+      }
+    }
+
+    // Actualizar timestamp de última ejecución
+    try {
+      await prisma.aiJobSetting.update({
+        where: { id: 'default' },
+        data: { lastRunAt: new Date() },
+      });
+    } catch (e) {}
+
+    return {
+      processed: pendingItems.length,
+      published: publishedCount,
+      discarded: discardedCount,
+      errors: errorCount,
+    };
+  }
 }
 
 export default AIQueueService;

@@ -378,9 +378,16 @@ export default function JobDetailClient({
                   <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center font-bold text-xl text-slate-700 shrink-0">
                     {jobData.company?.logoUrl ? (
                       <img
-                        src={jobData.company.logoUrl}
+                        src={
+                          jobData.company.logoUrl.includes('logo-quisqueya-talent.png')
+                            ? '/logo-quisqueya-talent.png'
+                            : jobData.company.logoUrl
+                        }
                         alt={jobData.company.name}
                         className="w-full h-full object-cover"
+                        onError={(e: any) => {
+                          e.currentTarget.src = '/icono.svg';
+                        }}
                       />
                     ) : (
                       <img
@@ -678,9 +685,16 @@ export default function JobDetailClient({
                   <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-700 shrink-0">
                     {jobData.company?.logoUrl ? (
                       <img
-                        src={jobData.company.logoUrl}
+                        src={
+                          jobData.company.logoUrl.includes('logo-quisqueya-talent.png')
+                            ? '/logo-quisqueya-talent.png'
+                            : jobData.company.logoUrl
+                        }
                         alt={jobData.company.name}
                         className="w-full h-full object-cover"
+                        onError={(e: any) => {
+                          e.currentTarget.src = '/icono.svg';
+                        }}
                       />
                     ) : (
                       <img

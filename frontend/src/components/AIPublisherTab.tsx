@@ -81,6 +81,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
   const [manualFiles, setManualFiles] = useState<File[]>([]);
   const [uploadingManual, setUploadingManual] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [publishingAll, setPublishingAll] = useState(false);
 
   // Cargar datos del publicador
   const fetchData = async () => {
@@ -139,6 +140,9 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
   // Evitar bloqueos CORP (ERR_BLOCKED_BY_RESPONSE.NotSameOrigin) canalizando imágenes externas de Instagram por el proxy
   const getSafeImageUrl = (url: string | null | undefined) => {
     if (!url) return '';
+    if (url.startsWith('/api/ai/publisher/proxy-image')) {
+      return `${API_URL}${url}`;
+    }
     if (url.startsWith('/')) return `${API_URL}${url}`;
     if (url.includes('fbcdn.net') || url.includes('cdninstagram.com')) {
       return `${API_URL}/api/ai/publisher/proxy-image?url=${encodeURIComponent(url)}`;
@@ -474,6 +478,47 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
     }
   };
 
+  // Procesar y publicar TODAS las vacantes en cola de inmediato
+  const handlePublishAllPending = async () => {
+    const totalToPublish = counts.pending + counts.draft;
+    if (totalToPublish === 0) {
+      toast.info('No hay vacantes pendientes en la cola para procesar', 'Cola Vacía');
+      return;
+    }
+    if (
+      !confirm(
+        `¿Deseas procesar con IA y publicar las ${totalToPublish} vacantes en cola directamente en la bolsa de empleo ahora mismo?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setPublishingAll(true);
+      const res = await fetch(`${API_URL}/api/ai/publisher/publish-all-pending`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(
+          data.message || 'Todas las vacantes fueron procesadas y publicadas exitosamente.',
+          '🚀 Publicación en Lote Completada'
+        );
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Error al procesar lote de vacantes', 'Error');
+      }
+    } catch (e) {
+      toast.error('Error de comunicación con el servidor', 'Error de Red');
+    } finally {
+      setPublishingAll(false);
+    }
+  };
+
   // Publicar borrador
   const handlePublishDraft = async (queueId: string) => {
     try {
@@ -655,20 +700,38 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
             </button>
           </div>
 
-          {/* Botón Acción Inmediata: Publicar 1 Ahora */}
-          <div className="flex items-center gap-2">
+          {/* Botones de Acción Inmediata */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleRunNow}
-              disabled={runningNow || counts.pending === 0}
+              disabled={runningNow || publishingAll || counts.pending === 0}
               className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shadow-lg cursor-pointer disabled:cursor-not-allowed"
+              title="Procesa 1 vacante de la cola y la publica"
             >
               {runningNow ? (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Procesando con IA...
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Procesando 1...
                 </>
               ) : (
                 <>
-                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Procesar y Publicar 1 Ahora
+                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Procesar 1 Ahora
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handlePublishAllPending}
+              disabled={publishingAll || runningNow || (counts.pending === 0 && counts.draft === 0)}
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-400 text-white px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shadow-lg cursor-pointer disabled:cursor-not-allowed"
+              title="Procesa todas las vacantes en cola y las publica de inmediato en la bolsa de empleo"
+            >
+              {publishingAll ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Publicando Lote ({counts.pending + counts.draft})...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Publicar Todo en la Bolsa ({counts.pending + counts.draft})
                 </>
               )}
             </button>
@@ -1027,7 +1090,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                         </div>
                         <div className="flex items-center gap-1 text-[10px] font-bold text-slate-600">
                           <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                          <span>{s._count?.queueItems || 0} vacantes extraídas</span>
+                          <span>{s._count?.queueItems || 0} vacantes en cola</span>
                         </div>
                       </div>
 
@@ -1037,14 +1100,14 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                           onClick={() => handleScanSingleSource(s)}
                           disabled={isThisScanning}
                           className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-lg transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                          title="Escanear esta cuenta ahora"
+                          title="Volver a escanear esta cuenta ahora"
                         >
                           {isThisScanning ? (
                             <RefreshCw className="w-3 h-3 animate-spin" />
                           ) : (
                             <RefreshCw className="w-3 h-3" />
                           )}
-                          <span>Revisar</span>
+                          <span>Re-escanear</span>
                         </button>
                         <button
                           type="button"
@@ -1320,6 +1383,24 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                 {f.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Banner Explicativo: Por qué están en cola y cómo publicarlas */}
+        <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/50 border border-blue-200/70 rounded-2xl p-4 flex items-start gap-3 shadow-2xs">
+          <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 text-blue-700 mt-0.5">
+            <Sparkles className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="space-y-1 text-xs">
+            <h5 className="font-black text-slate-900 flex items-center gap-2">
+              <span>¿Cómo funciona el flujo de vacantes extraídas?</span>
+              <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-full">
+                {counts.pending} vacantes listas para publicar
+              </span>
+            </h5>
+            <p className="text-slate-600 leading-relaxed text-[11px]">
+              Al escanear tus perfiles de Instagram, los posts se guardan de forma segura aquí en la <strong>Cola de Espera</strong>. Para que aparezcan en la bolsa de empleo pública de Quisqueya Talent, pulsa el botón verde superior <strong>"⚡ Publicar Todo en la Bolsa ({counts.pending})"</strong> para publicarlas todas de golpe, o pulsa <strong>"Procesar 1 Ahora"</strong> para publicarlas una a una.
+            </p>
           </div>
         </div>
 

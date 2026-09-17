@@ -344,9 +344,16 @@ function HomePageContent() {
                       <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-700 shrink-0">
                         {job.company.logoUrl ? (
                           <img
-                            src={job.company.logoUrl}
+                            src={
+                              job.company.logoUrl.includes('logo-quisqueya-talent.png')
+                                ? '/logo-quisqueya-talent.png'
+                                : job.company.logoUrl
+                            }
                             alt={job.company.name}
                             className="w-full h-full object-cover"
+                            onError={(e: any) => {
+                              e.currentTarget.src = '/icono.svg';
+                            }}
                           />
                         ) : (
                           <img

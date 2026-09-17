@@ -324,6 +324,20 @@ router.post('/publisher/run-now', authenticate, requireRole(Role.ADMIN, Role.SUP
   }
 });
 
+// 11.1 Procesar y publicar de inmediato TODAS las vacantes en cola (Botón "Publicar Todo en Lote")
+router.post('/publisher/publish-all-pending', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
+  try {
+    const result = await AIQueueService.publishAllPending();
+    return res.json({
+      message: `¡Proceso completado! ${result.published} vacantes fueron publicadas exitosamente en la bolsa de empleo (${result.discarded} descartadas por no ser empleos).`,
+      result,
+    });
+  } catch (error: any) {
+    console.error('Error procesando lote de vacantes:', error);
+    return res.status(500).json({ error: error.message || 'Error al publicar lote de vacantes' });
+  }
+});
+
 // 12. Aprobar y publicar un borrador generado por la IA
 router.post('/publisher/publish-draft/:id', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
