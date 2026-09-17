@@ -138,12 +138,13 @@ router.patch('/publisher/settings', authenticate, requireRole(Role.ADMIN, Role.S
 router.post('/publisher/scan-profile', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
     const targetUrl = req.body.profileUrl || req.body.url;
+    const instagramSessionId = req.body.instagramSessionId || process.env.INSTAGRAM_SESSION_ID;
     if (!targetUrl) {
       return res.status(400).json({ error: 'Debes proporcionar la URL de la página web de empleos, vacante o @usuario' });
     }
 
     const settings = await AIQueueService.getSettings();
-    const result = await InstagramScraperService.scanAndEnqueue(targetUrl, settings.maxDaysOld || 30);
+    const result = await InstagramScraperService.scanAndEnqueue(targetUrl, settings.maxDaysOld || 30, instagramSessionId);
 
     return res.json({
       message: result.message || `Escaneo completado para ${result.username}`,

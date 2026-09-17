@@ -62,6 +62,8 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
   const [runningNow, setRunningNow] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [queueFilter, setQueueFilter] = useState<string>('ALL');
+  const [instagramSessionId, setInstagramSessionId] = useState('');
+  const [showSessionConfig, setShowSessionConfig] = useState(false);
 
   // Manual upload state
   const [manualCaption, setManualCaption] = useState('');
@@ -102,6 +104,10 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
 
   useEffect(() => {
     fetchData();
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('qt_ig_session_id');
+      if (saved) setInstagramSessionId(saved);
+    }
   }, [token, queueFilter]);
 
   // Alternar pausa / reanudación
@@ -180,7 +186,10 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ profileUrl: profileInput.trim() }),
+        body: JSON.stringify({
+          profileUrl: profileInput.trim(),
+          instagramSessionId: instagramSessionId.trim() || undefined,
+        }),
       });
       const data = await res.json();
 
@@ -683,6 +692,71 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
               )}
             </button>
           </form>
+
+          {/* Configuración Opcional: Cookie de Sesión de Instagram */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowSessionConfig(!showSessionConfig)}
+              className="text-[11px] font-bold text-slate-500 hover:text-blue-600 transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>🔑</span>
+              <span>
+                {showSessionConfig
+                  ? 'Ocultar configuración de sesión de Instagram'
+                  : '¿Deseas escanear perfiles de Instagram directamente sin bloqueo de Meta? (Configurar sessionid)'}
+              </span>
+            </button>
+
+            {showSessionConfig && (
+              <div className="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <InstagramIcon className="w-3.5 h-3.5 text-pink-600" />
+                      Cookie de Sesión de Instagram (sessionid)
+                    </h5>
+                    <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                      Instagram bloquea consultas automáticas anónimas con <code>429 Too Many Requests</code>. Para que el servidor pueda consultar perfiles públicos y descargar sus imágenes, pega aquí el valor de la cookie <code>sessionid</code> de cualquier cuenta de Instagram. Se guarda de forma local en tu navegador.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={instagramSessionId}
+                    onChange={(e) => {
+                      setInstagramSessionId(e.target.value);
+                      if (typeof window !== 'undefined') {
+                        localStorage.setItem('qt_ig_session_id', e.target.value.trim());
+                      }
+                    }}
+                    placeholder="Ejemplo: 68429184%3AKu28..."
+                    className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                  />
+                  {instagramSessionId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInstagramSessionId('');
+                        if (typeof window !== 'undefined') {
+                          localStorage.removeItem('qt_ig_session_id');
+                        }
+                        toast.info('Cookie de sesión eliminada', 'Sesión Limpiada');
+                      }}
+                      className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  💡 <strong>¿Cómo obtenerla?</strong> En tu navegador entra a <code>instagram.com</code>, presiona <code>F12</code> &gt; pestaña <strong>Application (o Almacenamiento)</strong> &gt; <strong>Cookies</strong> &gt; busca <strong>sessionid</strong> y copia su valor.
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Fuentes y Portales Monitoreados */}

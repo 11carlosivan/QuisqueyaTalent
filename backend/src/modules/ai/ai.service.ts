@@ -50,16 +50,18 @@ export class AIService {
       try {
         const prompt = `
 Actúa como un reclutador y redactor senior especializado en el mercado laboral de la República Dominicana para la plataforma de empleo Quisqueya Talent.
-Analiza la siguiente publicación de Instagram y determina si es una oferta de empleo legítima. Si lo es, extrae y redacta la información con estilo corporativo y profesional.
+Analiza la siguiente imagen o flyer de Instagram y determina si es una oferta de empleo legítima.
+IMPORTANTE: Lee con atención todo el texto visible en la imagen del flyer/afiche (título del puesto, requisitos, responsabilidades, correo o contacto de postulación, salario si aparece y empresa).
+Si es una vacante de empleo, extrae toda la información de la imagen e intégrala con redacción atractiva y estilo corporativo y profesional.
 
-Texto de la publicación:
+Texto o caption complementario:
 """${caption}"""
 
 Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (sin markdown, sin bloques de código extraños, solo JSON puro):
 {
   "isJobOffer": true, // false si es un meme, felicitación, saludo o contenido no relacionado con empleo
-  "title": "Título profesional y limpio del puesto",
-  "companyName": "Nombre de la empresa que contrata si se menciona, o 'Empresa Confidencial'",
+  "title": "Título profesional y limpio del puesto extraído de la imagen",
+  "companyName": "Nombre de la empresa que contrata si se menciona en el flyer, o 'Empresa Confidencial'",
   "category": "Una de: Tecnología | Ventas & Comercio | Call Center & BPO | Administración & Finanzas | Servicio al Cliente | Turismo & Hotelería | Salud & Medicina | Logística & Operaciones | Educación",
   "province": "Una provincia de República Dominicana (ej. Santo Domingo, Distrito Nacional, Santiago, La Altagracia, etc.)",
   "city": "Ciudad o sector si se menciona, o null",
@@ -71,7 +73,7 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (
   "salaryCurrency": "DOP", // DOP o USD
   "isSalaryPublic": false,
   "applyMethod": "EMAIL", // EMAIL si hay un correo para enviar CV, de lo contrario PLATFORM
-  "applyEmail": "correo@ejemplo.com si aparece en el texto, de lo contrario null",
+  "applyEmail": "correo@ejemplo.com si aparece en la imagen o texto, de lo contrario null",
   "description": "Redacción atractiva, formal y clara describiendo la vacante para candidatos dominicanos.",
   "responsibilities": "• Lista de responsabilidades principales con viñetas.",
   "requirements": "• Lista de requisitos clave (educación, experiencia, habilidades, etc.) con viñetas.",
@@ -82,12 +84,34 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (
 
         const parts: any[] = [{ text: prompt }];
 
+        // Descargar la imagen si se pasó por URL para enviarla a Gemini Multimodal / OCR
+        let imgBuffer = input.imageBuffer;
+        let imgMime = input.imageMime;
+
+        if (!imgBuffer && input.imageUrl && input.imageUrl.startsWith('http')) {
+          try {
+            const imgRes = await fetch(input.imageUrl, {
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              },
+            });
+            if (imgRes.ok) {
+              const arrayBuf = await imgRes.arrayBuffer();
+              imgBuffer = Buffer.from(arrayBuf);
+              imgMime = imgRes.headers.get('content-type') || 'image/jpeg';
+            }
+          } catch (imgErr) {
+            console.warn('No se pudo descargar imagen para análisis multimodal:', imgErr);
+          }
+        }
+
         // Si tenemos buffer de imagen, incluirlo en la llamada multimodal
-        if (input.imageBuffer && input.imageMime) {
+        if (imgBuffer && imgMime) {
           parts.push({
             inlineData: {
-              mimeType: input.imageMime,
-              data: input.imageBuffer.toString('base64'),
+              mimeType: imgMime.split(';')[0].trim(),
+              data: imgBuffer.toString('base64'),
             },
           });
         }

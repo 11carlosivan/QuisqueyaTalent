@@ -293,10 +293,58 @@ export class InstagramScraperService {
   /**
    * Intenta extraer posts recientes de un perfil de Instagram usando múltiples estrategias
    */
-  static async fetchProfilePosts(username: string): Promise<ScrapedPost[]> {
+  static async fetchProfilePosts(username: string, sessionId?: string): Promise<ScrapedPost[]> {
     const posts: ScrapedPost[] = [];
+    const activeSession = sessionId || process.env.INSTAGRAM_SESSION_ID || '';
 
-    // Estrategia 1: Consulta directa con headers simulados
+    // Estrategia 1: Con sesión de Instagram (Meta oficial con sessionid, infalible para perfiles públicos)
+    if (activeSession && activeSession.trim().length > 5) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+
+        const response = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+            'x-ig-app-id': '936619743392459',
+            'Accept-Language': 'es-DO,es;q=0.9,en;q=0.8',
+            Cookie: `sessionid=${activeSession.trim()};`,
+            Referer: `https://www.instagram.com/${username}/`,
+            Accept: '*/*',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (response.ok) {
+          const json: any = await response.json();
+          const edges = json?.data?.user?.edge_owner_to_timeline_media?.edges || [];
+          for (const edge of edges) {
+            const node = edge.node;
+            if (!node) continue;
+
+            const shortcode = node.shortcode || node.id;
+            const caption = node.edge_media_to_caption?.edges?.[0]?.node?.text || '';
+            const imageUrl = node.display_url || node.thumbnail_src || '';
+            const timestamp = node.taken_at_timestamp ? new Date(node.taken_at_timestamp * 1000) : new Date();
+
+            posts.push({
+              id: shortcode,
+              url: `https://www.instagram.com/p/${shortcode}/`,
+              caption,
+              imageUrl,
+              publishedAt: timestamp,
+            });
+          }
+          if (posts.length > 0) return posts;
+        }
+      } catch (e) {
+        console.warn('Fallo consulta con sessionid a Instagram:', e);
+      }
+    }
+
+    // Estrategia 2: Consulta directa sin sesión con headers móviles
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 7000);
@@ -391,7 +439,7 @@ export class InstagramScraperService {
    * Escaneo universal inteligente: acepta enlaces de portales web (Tu Empleo RD, Aldaba, Computrabajo, etc.),
    * enlaces individuales de vacantes, enlaces de posts de Instagram o perfiles de Instagram.
    */
-  static async scanAndEnqueue(urlOrUsername: string, maxDays = 30): Promise<ScanResult> {
+  static async scanAndEnqueue(urlOrUsername: string, maxDays = 30, sessionId?: string): Promise<ScanResult> {
     const raw = urlOrUsername.trim();
     if (!raw) {
       throw new Error('Debes proporcionar un enlace web, perfil o publicación');
@@ -439,7 +487,7 @@ export class InstagramScraperService {
           sourceType = 'INSTAGRAM_PROFILE';
           username = this.cleanUsername(raw);
           profileUrl = `https://www.instagram.com/${username}/`;
-          rawPosts = await this.fetchProfilePosts(username);
+          rawPosts = await this.fetchProfilePosts(username, sessionId);
         }
       } else {
         // Caso 2: Sitio web externo (portal de empleo o empresa)
@@ -465,7 +513,7 @@ export class InstagramScraperService {
       sourceType = 'INSTAGRAM_PROFILE';
       username = this.cleanUsername(raw);
       profileUrl = `https://www.instagram.com/${username}/`;
-      rawPosts = await this.fetchProfilePosts(username);
+      rawPosts = await this.fetchProfilePosts(username, sessionId);
     }
 
     // Asegurar o crear la fuente monitoreada
