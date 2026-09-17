@@ -1381,6 +1381,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                           <img
                             src={item.imageUrl.startsWith('/') ? `${API_URL}${item.imageUrl}` : item.imageUrl}
                             alt="Post Instagram"
+                            referrerPolicy="no-referrer"
                             className="w-full h-full object-cover"
                             onError={(e: any) => {
                               e.target.style.display = 'none';
