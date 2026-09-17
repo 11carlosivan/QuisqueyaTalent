@@ -48,41 +48,60 @@ export class AIService {
     // Si hay Gemini API Key configurada, llamar a Gemini 1.5 Flash
     if (key && key.trim().length > 10) {
       try {
-        const prompt = `
-Actúa como un reclutador y redactor senior especializado en el mercado laboral de la República Dominicana para la plataforma de empleo Quisqueya Talent.
-Analiza la siguiente imagen o flyer de Instagram y determina si es una oferta de empleo legítima.
-IMPORTANTE: Lee con atención todo el texto visible en la imagen del flyer/afiche (título del puesto, requisitos, responsabilidades, correo o contacto de postulación, salario si aparece y empresa).
-Si es una vacante de empleo, extrae toda la información de la imagen e intégrala con redacción atractiva y estilo corporativo y profesional.
+        // ─── Prompt de extracción con PRIORIDAD ESTRICTA a la imagen ───────────
+        // La imagen va PRIMERO en el array de parts para que Gemini la procese como
+        // fuente principal. El caption es solo referencia secundaria para completar
+        // campos que la imagen no aclara. NUNCA se deben pisar datos de la imagen
+        // con datos del caption (ej. si la imagen dice "WhatsApp: 809-xxx", se usa).
 
-Texto o caption complementario:
+        const systemInstruction = `Eres un extractor experto de vacantes de empleo para la plataforma Quisqueya Talent (República Dominicana).
+
+REGLA FUNDAMENTAL — PRIORIDAD DE FUENTES:
+1. La IMAGEN (flyer/afiche) es tu fuente PRINCIPAL y DEFINITIVA.
+   - Lee TODO el texto visible en la imagen: título, empresa, requisitos, responsabilidades, salario, método de contacto (WhatsApp, teléfono, email, link).
+   - Si la imagen indica un número de WhatsApp o teléfono para aplicar, DEBES incluirlo literalmente en el campo "description" y ajustar "applyMethod" a "PLATFORM".
+   - NUNCA omitas información de contacto visible en la imagen.
+2. El texto/caption es solo REFERENCIA SECUNDARIA para complementar lo que la imagen NO aclara.
+   - Si la imagen tiene el título → usa ese título (ignora el del caption si difieren).
+   - Si la imagen tiene instrucciones de aplicación → úsalas (ignora las del caption si difieren).
+3. Si NO hay imagen o la imagen es ilegible, usa el caption como fuente.
+
+INSTRUCCIONES DE REDACCIÓN:
+- Redacta en español formal dominicano, estilo corporativo y profesional.
+- La "description" debe ser atractiva para el candidato e incluir TODOS los detalles de contacto/aplicación que aparezcan en la imagen (WhatsApp, correo, enlace, etc.).
+- Si ves un número de WhatsApp, escríbelo explícitamente: "Para aplicar, escribe por WhatsApp al [número]".
+- Responde ÚNICAMENTE con JSON puro (sin markdown, sin bloques de código).`;
+
+        const prompt = `${systemInstruction}
+
+---
+TEXTO/CAPTION (referencia secundaria):
 """${caption}"""
 
-Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (sin markdown, sin bloques de código extraños, solo JSON puro):
+---
+ANALIZA LA IMAGEN ADJUNTA y extrae la información de la vacante. Responde con este JSON exacto:
 {
-  "isJobOffer": true, // false si es un meme, felicitación, saludo o contenido no relacionado con empleo
-  "title": "Título profesional y limpio del puesto extraído de la imagen",
-  "companyName": "Nombre de la empresa que contrata si se menciona en el flyer, o 'Empresa Confidencial'",
+  "isJobOffer": true,
+  "title": "Título exacto del puesto según la imagen",
+  "companyName": "Empresa mencionada en la imagen, o 'Empresa Confidencial'",
   "category": "Una de: Tecnología | Ventas & Comercio | Call Center & BPO | Administración & Finanzas | Servicio al Cliente | Turismo & Hotelería | Salud & Medicina | Logística & Operaciones | Educación",
-  "province": "Una provincia de República Dominicana (ej. Santo Domingo, Distrito Nacional, Santiago, La Altagracia, etc.)",
-  "city": "Ciudad o sector si se menciona, o null",
-  "jobType": "FULL_TIME", // FULL_TIME | PART_TIME | CONTRACT | INTERNSHIP | TEMPORARY
-  "workplaceType": "ON_SITE", // ON_SITE | REMOTE | HYBRID
-  "experienceLevel": "MID", // ENTRY | JUNIOR | MID | SENIOR
-  "salaryMin": null, // número si se menciona salario o null
+  "province": "Provincia de RD (Santo Domingo, Distrito Nacional, Santiago, La Altagracia, etc.)",
+  "city": "Ciudad o sector visible en la imagen, o null",
+  "jobType": "FULL_TIME",
+  "workplaceType": "ON_SITE",
+  "experienceLevel": "MID",
+  "salaryMin": null,
   "salaryMax": null,
-  "salaryCurrency": "DOP", // DOP o USD
+  "salaryCurrency": "DOP",
   "isSalaryPublic": false,
-  "applyMethod": "EMAIL", // EMAIL si hay un correo para enviar CV, de lo contrario PLATFORM
-  "applyEmail": "correo@ejemplo.com si aparece en la imagen o texto, de lo contrario null",
-  "description": "Redacción atractiva, formal y clara describiendo la vacante para candidatos dominicanos.",
-  "responsibilities": "• Lista de responsabilidades principales con viñetas.",
-  "requirements": "• Lista de requisitos clave (educación, experiencia, habilidades, etc.) con viñetas.",
-  "benefits": "• Beneficios ofrecidos (salario competitivo, seguro médico, beneficios de ley en RD, etc.) con viñetas.",
+  "applyMethod": "EMAIL",
+  "applyEmail": "email@ejemplo.com si aparece en la imagen, o null",
+  "description": "Descripción completa incluyendo TODOS los detalles de contacto y método de aplicación visibles en la imagen (WhatsApp, teléfono, link, correo, etc.).",
+  "responsibilities": "• Responsabilidades con viñetas según la imagen.",
+  "requirements": "• Requisitos con viñetas según la imagen.",
+  "benefits": "• Beneficios si se mencionan, o beneficios estándar de ley en RD.",
   "skills": ["Habilidad 1", "Habilidad 2", "Habilidad 3"]
-}
-`;
-
-        const parts: any[] = [{ text: prompt }];
+}`;
 
         // Descargar la imagen si se pasó por URL para enviarla a Gemini Multimodal / OCR
         let imgBuffer = input.imageBuffer;
@@ -106,8 +125,12 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (
           }
         }
 
-        // Si tenemos buffer de imagen, incluirlo en la llamada multimodal
+        // ⬇ IMAGEN PRIMERO para que Gemini la procese como fuente principal,
+        //   el texto del prompt va después como instrucción secundaria.
+        const parts: any[] = [];
+
         if (imgBuffer && imgMime) {
+          // Imagen va al INICIO del array
           parts.push({
             inlineData: {
               mimeType: imgMime.split(';')[0].trim(),
@@ -115,6 +138,10 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (
             },
           });
         }
+
+        // Texto del prompt siempre al final
+        parts.push({ text: prompt });
+
 
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
@@ -136,9 +163,24 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (
           const rawJson = result?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawJson) {
             const parsed = JSON.parse(rawJson);
+
+            // Post-procesado: si la descripción menciona WhatsApp/teléfono,
+            // forzar applyMethod a PLATFORM aunque Gemini haya devuelto EMAIL
+            const desc = (parsed.description || '').toLowerCase();
+            const hasWhatsApp = /whatsapp|wha?ts|wa\.me|809|829|849|\+1[-\s]?\(?8[0-9]{2}\)?/.test(desc);
+            const hasPhone = /llama[r]?\s+al|escrib[ei]\s+al|cont[aá]ct[ao]\s+al|tel[eé]fono|celular/.test(desc);
+
+            if (hasWhatsApp || hasPhone) {
+              parsed.applyMethod = 'PLATFORM';
+              if (!parsed.applyEmail) {
+                parsed.applyEmail = null;
+              }
+            }
+
             return parsed;
           }
         }
+
       } catch (err) {
         console.warn('Fallo llamada directa a Gemini API, activando extractor heurístico dominicano.');
       }
