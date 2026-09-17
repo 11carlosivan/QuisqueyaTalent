@@ -225,13 +225,13 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
             'Vacantes ya en cola'
           );
         } else if (data.result.sourceType === 'INSTAGRAM_PROFILE') {
-          toast.info(
-            `Meta/Instagram bloqueó el acceso público automatizado al perfil @${data.result.username}. Puedes pegar el enlace directo a la página web del empleo o subir capturas/screenshots en la zona superior.`,
+          toast.warning(
+            data.message || `Meta/Instagram bloqueó el acceso automatizado al perfil @${data.result.username} (error 429). Puedes pegar el enlace del post directamente (ej: https://www.instagram.com/p/...) o conectar la cookie sessionid abajo para el monitoreo automático.`,
             'Aviso de Instagram'
           );
         } else {
           toast.warning(
-            data.message || 'No se detectaron publicaciones de empleo en la página indicada. Asegúrate de que el enlace contenga vacantes.',
+            data.message || 'No se detectaron publicaciones de empleo en el enlace indicado.',
             'Sin vacantes detectadas'
           );
         }
@@ -848,10 +848,10 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
           </div>
         )}
 
-        {/* Formulario: Registrar nuevo perfil de Instagram o portal para monitoreo diario */}
+        {/* Formulario: Extraer Vacante desde Post de Instagram, Enlaces Múltiples o Perfil */}
         <div className="space-y-2">
           <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-pink-600" /> Agregar Cuenta de Instagram o Portal Web para Monitoreo Diario:
+            <Sparkles className="w-4 h-4 text-pink-600" /> Extraer Vacante(s) desde Instagram o Web (Post Directo, Múltiples o Perfil):
           </label>
 
           <form onSubmit={handleScanProfile} className="flex flex-col sm:flex-row gap-3">
@@ -863,7 +863,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                 type="text"
                 value={profileInput}
                 onChange={(e) => setProfileInput(e.target.value)}
-                placeholder="Pega el link de Instagram (ej: https://www.instagram.com/empleosdr/ o @empleosdr)"
+                placeholder="Pega link de post (ej: https://www.instagram.com/p/DdXQmpeRqtQ/), enlaces múltiples o perfil (@empleos_parati_rd)"
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:bg-white transition shadow-2xs"
               />
             </div>
@@ -875,17 +875,17 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
             >
               {scanning ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Conectando y Registrando...
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Extrayendo con IA...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 text-amber-300" /> Monitorear Diariamente
+                  <Sparkles className="w-4 h-4 text-amber-300" /> Extraer y Encolar con IA
                 </>
               )}
             </button>
           </form>
           <p className="text-[11px] text-slate-400 pl-1">
-            💡 Al registrar la cuenta, el sistema la guardará en la base de datos y la escaneará todos los días sin que tengas que volver a entrar.
+            💡 <strong>Universal:</strong> Puedes pegar enlaces directos de publicaciones de Instagram (ej: <code>https://www.instagram.com/p/...</code>), varios enlaces a la vez, o perfiles completos. La IA extraerá los datos, el afiche en alta resolución y asociará la vacante a la cuenta correspondiente.
           </p>
         </div>
 

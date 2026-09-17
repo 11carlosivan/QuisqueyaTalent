@@ -7,6 +7,7 @@ export interface ScrapedPost {
   url: string;
   caption: string;
   imageUrl: string;
+  author?: string;
   publishedAt: Date;
   extractedData?: ExtractedJobData;
 }
@@ -226,6 +227,22 @@ export class InstagramScraperService {
   }
 
   /**
+   * Decodifica entidades HTML y emojis en textos extraídos
+   */
+  static decodeHtmlEntities(str: string): string {
+    if (!str) return '';
+    return str
+      .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+      .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(parseInt(code, 10)))
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&nbsp;/g, ' ')
+      .trim();
+  }
+
+  /**
    * Extrae información de una publicación específica de Instagram (post o reel)
    */
   static async fetchSingleInstagramPost(shortcode: string, fullUrl: string): Promise<ScrapedPost | null> {
@@ -240,26 +257,55 @@ export class InstagramScraperService {
 
       if (res.ok) {
         const html = await res.text();
-        const ogTitle =
+        const ogTitleRaw =
           (
             html.match(/<meta\s+property="og:title"\s+content="([^"]*)"/i) ||
             html.match(/<meta\s+name="description"\s+content="([^"]*)"/i)
           )?.[1] || '';
-        const ogDesc =
+        const ogDescRaw =
           (
             html.match(/<meta\s+property="og:description"\s+content="([^"]*)"/i) ||
             html.match(/<meta\s+name="description"\s+content="([^"]*)"/i)
           )?.[1] || '';
-        const ogImage = html.match(/<meta\s+property="og:image"\s+content="([^"]*)"/i)?.[1] || '';
+        const ogImageRaw = html.match(/<meta\s+property="og:image"\s+content="([^"]*)"/i)?.[1] || '';
 
-        const caption = ogDesc || ogTitle || `Publicación de empleo en Instagram (${shortcode})`;
+        const ogTitle = this.decodeHtmlEntities(ogTitleRaw);
+        const ogDesc = this.decodeHtmlEntities(ogDescRaw);
+        const ogImage = this.decodeHtmlEntities(ogImageRaw).replace(/&amp;/g, '&');
+
+        // Detectar usuario autor de la publicación (ej: "... - empleos_parati_rd on/el September 16, 2026")
+        const authorMatch =
+          ogDesc.match(/(?:likes|comments|me gusta|comentarios)\s*-\s*([a-zA-Z0-9._]+)\s+(?:on|el|le)\s+/i) ||
+          ogDesc.match(/-\s*([a-zA-Z0-9._]+)\s+(?:on|el|le)\s+[A-Za-z]+\s+\d+/i);
+        const author = authorMatch ? authorMatch[1].toLowerCase() : '';
+
+        // Limpiar el prefijo de contadores de Instagram en la descripción
+        let caption = ogDesc
+          .replace(/^[0-9,KMk\s]+likes,\s+[0-9,KMk\s]+comments\s+-\s+[^:]+:\s*"?/i, '')
+          .replace(/^[0-9,KMk\s]+me gusta,\s+[0-9,KMk\s]+comentarios\s+-\s+[^:]+:\s*"?/i, '')
+          .replace(/"?\.\s*$/i, '')
+          .trim();
+
+        if (!caption && ogTitle) {
+          caption = ogTitle.replace(/^[^\"]*:\s*\"?/i, '').replace(/"?\s*$/i, '').trim();
+        }
+
+        // Pre-extraer los datos de la vacante con IA
+        let extractedData: ExtractedJobData | undefined;
+        try {
+          if (caption && caption.length > 20) {
+            extractedData = await AIService.parseJobFromPost({ caption, imageUrl: ogImage });
+          }
+        } catch (e) {}
 
         return {
           id: shortcode,
           url: fullUrl,
-          caption,
+          caption: caption || `Publicación de empleo en Instagram (${shortcode})`,
           imageUrl: ogImage,
+          author,
           publishedAt: new Date(),
+          extractedData,
         };
       }
     } catch (e) {}
@@ -461,6 +507,44 @@ export class InstagramScraperService {
       throw new Error('Debes proporcionar un enlace web, perfil o publicación');
     }
 
+    // Soporte para múltiples URLs (separadas por salto de línea, coma o espacio)
+    const rawUrls = raw
+      .split(/[\r\n,]+/)
+      .map((u) => u.trim())
+      .filter((u) => u.startsWith('http://') || u.startsWith('https://'));
+
+    if (rawUrls.length > 1) {
+      let combinedNewEnqueued = 0;
+      let combinedDuplicates = 0;
+      let combinedTooOld = 0;
+      let totalFound = 0;
+      const allItems: any[] = [];
+      let lastUsername = '';
+
+      for (const singleUrl of rawUrls) {
+        try {
+          const res = await this.scanAndEnqueue(singleUrl, maxDays, sessionId);
+          combinedNewEnqueued += res.newEnqueued;
+          combinedDuplicates += res.skippedDuplicates;
+          combinedTooOld += res.skippedTooOld;
+          totalFound += res.totalFound;
+          allItems.push(...res.items);
+          if (res.username) lastUsername = res.username;
+        } catch (e) {}
+      }
+
+      return {
+        username: lastUsername || 'múltiples_enlaces',
+        sourceType: 'INSTAGRAM_POST',
+        totalFound,
+        newEnqueued: combinedNewEnqueued,
+        skippedDuplicates: combinedDuplicates,
+        skippedTooOld: combinedTooOld,
+        message: `Se procesaron ${rawUrls.length} enlaces: ${combinedNewEnqueued} nuevas vacantes añadidas a la cola (${combinedDuplicates} ya existían).`,
+        items: allItems,
+      };
+    }
+
     const activeSession = (sessionId || process.env.INSTAGRAM_SESSION_ID || '').trim();
 
     const cutoffDate = new Date();
@@ -500,6 +584,10 @@ export class InstagramScraperService {
           const singlePost = await this.fetchSingleInstagramPost(shortcode, fullUrl);
           if (singlePost) {
             rawPosts.push(singlePost);
+            if (singlePost.author) {
+              username = singlePost.author;
+              profileUrl = `https://www.instagram.com/${singlePost.author}/`;
+            }
           }
         } else {
           sourceType = 'INSTAGRAM_PROFILE';
@@ -624,8 +712,14 @@ export class InstagramScraperService {
     } else if (sourceType === 'INSTAGRAM_POST') {
       message =
         newEnqueued > 0
-          ? `Publicación de Instagram encolada para redacción con IA.`
-          : `Esta publicación ya se encontraba en la cola.`;
+          ? `¡Éxito! Vacante extraída de Instagram (@${username}) con su afiche y encolada para redacción con IA.`
+          : skippedDuplicates > 0
+          ? `Esta publicación de vacante ya se encontraba en la cola.`
+          : `No se pudo extraer la información del post de Instagram.`;
+    } else if (sourceType === 'INSTAGRAM_PROFILE' && newEnqueued === 0 && skippedDuplicates === 0) {
+      if (!activeSession) {
+        message = `Instagram bloqueó la lectura del perfil @${username} (error 429 de Meta). Puedes pegar el link del post directamente (ej: https://www.instagram.com/p/...) o configurar tu cookie sessionid abajo para el monitoreo automático.`;
+      }
     }
 
     return {
