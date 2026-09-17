@@ -78,51 +78,77 @@ export class AIPublisherWorker {
    * Escanea de forma autónoma todas las cuentas de Instagram y sitios web activos
    * buscando nuevos posts de vacantes para encolar y procesar con IA
    */
-  static async scanAllSources(): Promise<{ scanned: number; newJobsEnqueued: number; errors: number }> {
+  static async scanAllSources(force = false): Promise<{
+    scanned: number;
+    newJobsEnqueued: number;
+    skippedDuplicates: number;
+    errors: number;
+    message?: string;
+  }> {
     if (this.isScanningSources) {
       console.log('⏳ [AIPublisherWorker] Ya hay un escaneo de fuentes en curso. Omitiendo.');
-      return { scanned: 0, newJobsEnqueued: 0, errors: 0 };
+      return {
+        scanned: 0,
+        newJobsEnqueued: 0,
+        skippedDuplicates: 0,
+        errors: 0,
+        message: 'Ya hay un escaneo en curso',
+      };
     }
 
     this.isScanningSources = true;
     let totalNew = 0;
+    let skippedDuplicatesTotal = 0;
     let errorCount = 0;
     let scannedCount = 0;
 
     try {
-      // 1. Verificar si el sistema está activo globalmente
+      // 1. Verificar si el sistema está activo globalmente (si no es forzado manualmente)
       const settings = await AIQueueService.getSettings();
-      if (!settings.isActive) {
+      if (!force && !settings.isActive) {
         console.log('⏸️ [AIPublisherWorker] Publicador IA pausado globalmente. Omitiendo escaneo autónomo.');
-        return { scanned: 0, newJobsEnqueued: 0, errors: 0 };
+        return {
+          scanned: 0,
+          newJobsEnqueued: 0,
+          skippedDuplicates: 0,
+          errors: 0,
+          message: 'Publicador IA pausado',
+        };
       }
 
-      // 2. Obtener todas las cuentas activas
+      // 2. Obtener las cuentas a escanear (activas o todas si es forzado)
       const sources = await prisma.instagramSource.findMany({
-        where: { isActive: true },
-        orderBy: { lastScannedAt: 'asc' }, // Primero las que llevan más tiempo sin revisarse
+        where: force ? {} : { isActive: true },
+        orderBy: { lastScannedAt: 'asc' },
       });
 
       if (sources.length === 0) {
-        console.log('ℹ️ [AIPublisherWorker] No hay perfiles o páginas registradas para escaneo autónomo.');
-        return { scanned: 0, newJobsEnqueued: 0, errors: 0 };
+        console.log('ℹ️ [AIPublisherWorker] No hay perfiles o páginas registradas para escanear.');
+        return {
+          scanned: 0,
+          newJobsEnqueued: 0,
+          skippedDuplicates: 0,
+          errors: 0,
+          message: 'No hay cuentas registradas para escanear',
+        };
       }
 
-      console.log(`🤖 [AIPublisherWorker] Iniciando escaneo autónomo de ${sources.length} perfiles registrados...`);
+      console.log(`🤖 [AIPublisherWorker] Iniciando escaneo de ${sources.length} perfiles (forzado: ${force})...`);
       const sessionId = AIQueueService.getRawSessionId();
       const maxDaysOld = settings.maxDaysOld || 7;
 
       for (const source of sources) {
         try {
           const target = source.profileUrl || source.username;
-          console.log(`🔍 [AIPublisherWorker] Escaneando automáticamente: @${source.username} (${target})...`);
+          console.log(`🔍 [AIPublisherWorker] Escaneando: @${source.username} (${target})...`);
 
           const result = await InstagramScraperService.scanAndEnqueue(target, maxDaysOld, sessionId);
           scannedCount++;
           totalNew += result.newEnqueued;
+          skippedDuplicatesTotal += result.skippedDuplicates;
 
           console.log(
-            `✨ [AIPublisherWorker] @${source.username}: ${result.newEnqueued} nuevas vacantes añadidas a la cola (${result.skippedDuplicates} ya existían).`
+            `✨ [AIPublisherWorker] @${source.username}: ${result.newEnqueued} nuevas vacantes (${result.skippedDuplicates} ya existían).`
           );
 
           // Actualizar fecha de último escaneo exitoso
@@ -131,8 +157,10 @@ export class AIPublisherWorker {
             data: { lastScannedAt: new Date() },
           });
 
-          // Pausa de 6 segundos entre cuentas para proteger contra límites de tasa
-          await new Promise((r) => setTimeout(r, 6000));
+          // Pequeña pausa entre cuentas para proteger contra límites de tasa
+          if (sources.length > 1) {
+            await new Promise((r) => setTimeout(r, 4000));
+          }
         } catch (srcErr: any) {
           errorCount++;
           console.error(`⚠️ [AIPublisherWorker] Error escaneando fuente @${source.username}:`, srcErr.message || srcErr);
@@ -141,15 +169,20 @@ export class AIPublisherWorker {
 
       this.lastSourcesScanAt = new Date();
       console.log(
-        `🏁 [AIPublisherWorker] Escaneo autónomo finalizado: ${scannedCount} cuentas analizadas, ${totalNew} nuevas vacantes listas para redactar con IA.`
+        `🏁 [AIPublisherWorker] Escaneo finalizado: ${scannedCount} cuentas analizadas, ${totalNew} nuevas vacantes listas.`
       );
     } catch (err) {
-      console.error('❌ [AIPublisherWorker] Error general en escaneo autónomo de fuentes:', err);
+      console.error('❌ [AIPublisherWorker] Error general en escaneo de fuentes:', err);
     } finally {
       this.isScanningSources = false;
     }
 
-    return { scanned: scannedCount, newJobsEnqueued: totalNew, errors: errorCount };
+    return {
+      scanned: scannedCount,
+      newJobsEnqueued: totalNew,
+      skippedDuplicates: skippedDuplicatesTotal,
+      errors: errorCount,
+    };
   }
 
   /**

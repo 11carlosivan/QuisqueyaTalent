@@ -121,6 +121,15 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
     }
   }, [token, queueFilter]);
 
+  // Si hay un escaneo en curso en el worker, consultar periódicamente hasta que termine
+  useEffect(() => {
+    if (!workerStatus?.isScanningSources) return;
+    const interval = setInterval(() => {
+      fetchData();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [workerStatus?.isScanningSources]);
+
   // Alternar pausa / reanudación
   const handleToggleActive = async () => {
     if (!settings) return;
@@ -238,7 +247,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
     }
   };
 
-  // Escanear todas las cuentas registradas en segundo plano
+  // Escanear todas las cuentas registradas
   const handleScanAllSources = async () => {
     try {
       setScanningAll(true);
@@ -248,16 +257,28 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success(
-          data.message || 'Escaneo autónomo iniciado para todas las cuentas registradas.',
-          'Escaneo en Segundo Plano'
-        );
-        setTimeout(fetchData, 2500);
+        if (data.result?.newJobsEnqueued > 0) {
+          toast.success(
+            data.message || `¡Éxito! ${data.result.newJobsEnqueued} nuevas vacantes detectadas.`,
+            '¡Nuevas Vacantes en Cola!'
+          );
+        } else if (data.result?.scanned === 0) {
+          toast.warning(
+            data.message || 'No hay cuentas registradas aún. Agrega un perfil arriba para comenzar.',
+            'Sin Cuentas'
+          );
+        } else {
+          toast.info(
+            data.message || 'Escaneo completado. No se detectaron vacantes nuevas en este momento.',
+            'Escaneo Finalizado'
+          );
+        }
+        await fetchData();
       } else {
-        toast.info(data.error || 'No se pudo iniciar el escaneo', 'Aviso');
+        toast.warning(data.error || 'No se pudo completar el escaneo', 'Aviso');
       }
     } catch (e) {
-      toast.error('Error de red al iniciar escaneo', 'Error');
+      toast.error('Error de comunicación con el servidor', 'Error de Red');
     } finally {
       setScanningAll(false);
     }

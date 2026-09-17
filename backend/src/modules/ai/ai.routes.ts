@@ -218,23 +218,32 @@ router.patch('/publisher/sources/:id/toggle', authenticate, requireRole(Role.ADM
   }
 });
 
-// 8.3 Disparar escaneo autónomo de todas las cuentas registradas de inmediato
+// 8.3 Disparar escaneo de todas las cuentas registradas de inmediato
 router.post('/publisher/scan-all-sources', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
   try {
     if (AIPublisherWorker.isScanning()) {
-      return res.status(409).json({ error: 'Ya hay un escaneo de cuentas en curso en segundo plano' });
+      return res.status(409).json({ error: 'Ya hay un escaneo de cuentas en curso. Por favor espera unos segundos.' });
     }
 
-    // Ejecutar en segundo plano
-    AIPublisherWorker.scanAllSources().catch((e) => {
-      console.error('Error en escaneo de todas las fuentes:', e);
-    });
+    // Ejecutar el escaneo de forma síncrona para entregar resultados inmediatos en pantalla
+    const result = await AIPublisherWorker.scanAllSources(true);
+
+    let message = `Escaneo finalizado: ${result.scanned} cuentas analizadas.`;
+    if (result.scanned === 0) {
+      message = result.message || 'No tienes cuentas registradas aún. Agrega un perfil en el campo superior para comenzar.';
+    } else if (result.newJobsEnqueued > 0) {
+      message = `¡Éxito! ${result.newJobsEnqueued} nuevas vacantes detectadas y encoladas (${result.skippedDuplicates} ya estaban registradas).`;
+    } else {
+      message = `Escaneo completado en ${result.scanned} cuentas. No se detectaron vacantes nuevas (${result.skippedDuplicates} publicaciones ya existían).`;
+    }
 
     return res.json({
-      message: 'Escaneo autónomo de todas las fuentes iniciado en segundo plano',
+      message,
+      result,
     });
   } catch (error: any) {
-    return res.status(500).json({ error: error.message || 'Error al iniciar escaneo de fuentes' });
+    console.error('Error en escaneo de todas las fuentes:', error);
+    return res.status(500).json({ error: error.message || 'Error al escanear fuentes' });
   }
 });
 

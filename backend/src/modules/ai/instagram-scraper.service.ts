@@ -295,13 +295,18 @@ export class InstagramScraperService {
    */
   static async fetchProfilePosts(username: string, sessionId?: string): Promise<ScrapedPost[]> {
     const posts: ScrapedPost[] = [];
-    const activeSession = sessionId || process.env.INSTAGRAM_SESSION_ID || '';
+    let rawSession = (sessionId || process.env.INSTAGRAM_SESSION_ID || '').trim();
+    if (rawSession.startsWith('sessionid=')) {
+      rawSession = rawSession.replace(/^sessionid=/, '');
+    }
+    rawSession = rawSession.replace(/^["']|["']$/g, '').trim();
 
     // Estrategia 1: Con sesión de Instagram (Meta oficial con sessionid, infalible para perfiles públicos)
-    if (activeSession && activeSession.trim().length > 5) {
+    if (rawSession && rawSession.length > 5) {
       try {
+        console.log(`[Instagram Scraper] Consultando @${username} con sessionid (${rawSession.slice(0, 8)}...)...`);
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
+        const timeout = setTimeout(() => controller.abort(), 10000);
 
         const response = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`, {
           headers: {
@@ -309,13 +314,15 @@ export class InstagramScraperService {
               'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
             'x-ig-app-id': '936619743392459',
             'Accept-Language': 'es-DO,es;q=0.9,en;q=0.8',
-            Cookie: `sessionid=${activeSession.trim()};`,
+            Cookie: `sessionid=${rawSession};`,
             Referer: `https://www.instagram.com/${username}/`,
             Accept: '*/*',
           },
           signal: controller.signal,
         });
         clearTimeout(timeout);
+
+        console.log(`[Instagram Scraper] Respuesta de Instagram para @${username}: HTTP ${response.status}`);
 
         if (response.ok) {
           const json: any = await response.json();
