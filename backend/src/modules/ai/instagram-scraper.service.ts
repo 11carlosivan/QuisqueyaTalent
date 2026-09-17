@@ -445,6 +445,8 @@ export class InstagramScraperService {
       throw new Error('Debes proporcionar un enlace web, perfil o publicación');
     }
 
+    const activeSession = (sessionId || process.env.INSTAGRAM_SESSION_ID || '').trim();
+
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - maxDays);
 
@@ -487,7 +489,7 @@ export class InstagramScraperService {
           sourceType = 'INSTAGRAM_PROFILE';
           username = this.cleanUsername(raw);
           profileUrl = `https://www.instagram.com/${username}/`;
-          rawPosts = await this.fetchProfilePosts(username, sessionId);
+          rawPosts = await this.fetchProfilePosts(username, activeSession);
         }
       } else {
         // Caso 2: Sitio web externo (portal de empleo o empresa)
@@ -513,7 +515,7 @@ export class InstagramScraperService {
       sourceType = 'INSTAGRAM_PROFILE';
       username = this.cleanUsername(raw);
       profileUrl = `https://www.instagram.com/${username}/`;
-      rawPosts = await this.fetchProfilePosts(username, sessionId);
+      rawPosts = await this.fetchProfilePosts(username, activeSession);
     }
 
     // Asegurar o crear la fuente monitoreada

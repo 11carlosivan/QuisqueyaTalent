@@ -1,7 +1,44 @@
+import path from 'path';
+import fs from 'fs';
 import { JobStatus, JobType, WorkplaceType, ExperienceLevel } from '@prisma/client';
 import prisma from '../../config/prisma';
 import AIService, { ExtractedJobData } from './ai.service';
 import OfficialCompanyService from '../companies/official-company.service';
+
+const uploadsDir = path.join(process.cwd(), 'uploads');
+const configFile = path.join(uploadsDir, 'ai-config.json');
+
+function readConfigFile(): { instagramSessionId?: string } {
+  try {
+    if (fs.existsSync(configFile)) {
+      const raw = fs.readFileSync(configFile, 'utf8');
+      return JSON.parse(raw);
+    }
+  } catch (e) {}
+  return {};
+}
+
+function writeConfigFile(data: { instagramSessionId?: string }) {
+  try {
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    const current = readConfigFile();
+    const updated = { ...current, ...data };
+    fs.writeFileSync(configFile, JSON.stringify(updated, null, 2), 'utf8');
+    if (updated.instagramSessionId) {
+      process.env.INSTAGRAM_SESSION_ID = updated.instagramSessionId;
+    }
+  } catch (e) {
+    console.warn('Error guardando ai-config.json:', e);
+  }
+}
+
+// Inicializar variable en proceso si existe archivo
+const initConfig = readConfigFile();
+if (initConfig.instagramSessionId) {
+  process.env.INSTAGRAM_SESSION_ID = initConfig.instagramSessionId;
+}
 
 export class AIQueueService {
   /**
@@ -27,21 +64,40 @@ export class AIQueueService {
       });
     }
 
+    const extraConfig = readConfigFile();
+    const sessionId = extraConfig.instagramSessionId || process.env.INSTAGRAM_SESSION_ID || '';
+    const maskedSession = sessionId ? `${sessionId.slice(0, 6)}••••••••${sessionId.slice(-4)}` : '';
+
     return {
       ...settings,
       officialCompany: company,
+      instagramSessionId: maskedSession,
+      hasInstagramSession: Boolean(sessionId),
     };
   }
 
   /**
-   * Actualiza la configuración del publicador IA (pausa, vacantes por hora, modo)
+   * Obtiene la cookie de sesión raw de Instagram sin enmascarar
+   */
+  static getRawSessionId(): string {
+    const extraConfig = readConfigFile();
+    return (extraConfig.instagramSessionId || process.env.INSTAGRAM_SESSION_ID || '').trim();
+  }
+
+  /**
+   * Actualiza la configuración del publicador IA (pausa, vacantes por hora, modo, sesión de instagram)
    */
   static async updateSettings(data: {
     isActive?: boolean;
     jobsPerHour?: number;
     publishMode?: 'DRAFT' | 'PUBLISHED';
     maxDaysOld?: number;
+    instagramSessionId?: string;
   }) {
+    if (data.instagramSessionId !== undefined) {
+      writeConfigFile({ instagramSessionId: data.instagramSessionId.trim() });
+    }
+
     const updated = await prisma.aiJobSetting.upsert({
       where: { id: 'default' },
       update: {
@@ -60,10 +116,15 @@ export class AIQueueService {
     });
 
     const company = await OfficialCompanyService.getOfficialCompany();
+    const extraConfig = readConfigFile();
+    const sessionId = extraConfig.instagramSessionId || process.env.INSTAGRAM_SESSION_ID || '';
+    const maskedSession = sessionId ? `${sessionId.slice(0, 6)}••••••••${sessionId.slice(-4)}` : '';
 
     return {
       ...updated,
       officialCompany: company,
+      instagramSessionId: maskedSession,
+      hasInstagramSession: Boolean(sessionId),
     };
   }
 

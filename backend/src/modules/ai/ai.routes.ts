@@ -6,6 +6,7 @@ import fs from 'fs';
 import { AIService } from './ai.service';
 import { InstagramScraperService } from './instagram-scraper.service';
 import { AIQueueService } from './ai-queue.service';
+import AIPublisherWorker from './ai-publisher.worker';
 import prisma from '../../config/prisma';
 import { authenticate, requireRole } from '../../middleware/auth';
 
@@ -168,6 +169,82 @@ router.get('/publisher/sources', authenticate, requireRole(Role.ADMIN, Role.SUPE
     return res.json(sources);
   } catch (error) {
     return res.status(500).json({ error: 'Error al listar perfiles de Instagram' });
+  }
+});
+
+// 8.1 Registrar un perfil para monitoreo diario autónomo
+router.post('/publisher/sources', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const targetUrl = req.body.url || req.body.profileUrl || req.body.username;
+    if (!targetUrl) {
+      return res.status(400).json({ error: 'Debes proporcionar la URL o @usuario del perfil' });
+    }
+
+    const settings = await AIQueueService.getSettings();
+    const sessionId = AIQueueService.getRawSessionId();
+
+    const result = await InstagramScraperService.scanAndEnqueue(targetUrl, settings.maxDaysOld || 7, sessionId);
+
+    return res.json({
+      message: `Perfil @${result.username} registrado exitosamente para monitoreo diario autónomo`,
+      result,
+    });
+  } catch (error: any) {
+    console.error('Error registrando perfil para monitoreo:', error);
+    return res.status(500).json({ error: error.message || 'Error al registrar perfil para monitoreo' });
+  }
+});
+
+// 8.2 Alternar estado activo / pausado de un perfil monitoreado
+router.patch('/publisher/sources/:id/toggle', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const existing = await prisma.instagramSource.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    const updated = await prisma.instagramSource.update({
+      where: { id },
+      data: { isActive: !existing.isActive },
+    });
+
+    return res.json({
+      message: `Monitoreo para @${updated.username} ${updated.isActive ? 'activado' : 'pausado'}`,
+      source: updated,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al actualizar estado del perfil' });
+  }
+});
+
+// 8.3 Disparar escaneo autónomo de todas las cuentas registradas de inmediato
+router.post('/publisher/scan-all-sources', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
+  try {
+    if (AIPublisherWorker.isScanning()) {
+      return res.status(409).json({ error: 'Ya hay un escaneo de cuentas en curso en segundo plano' });
+    }
+
+    // Ejecutar en segundo plano
+    AIPublisherWorker.scanAllSources().catch((e) => {
+      console.error('Error en escaneo de todas las fuentes:', e);
+    });
+
+    return res.json({
+      message: 'Escaneo autónomo de todas las fuentes iniciado en segundo plano',
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Error al iniciar escaneo de fuentes' });
+  }
+});
+
+// 8.4 Consultar estado operativo del worker en segundo plano
+router.get('/publisher/worker-status', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
+  try {
+    const status = AIPublisherWorker.getStatus();
+    return res.json(status);
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al consultar estado del worker' });
   }
 });
 

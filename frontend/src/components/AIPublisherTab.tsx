@@ -26,6 +26,8 @@ import {
   Filter,
   Globe,
   Link as LinkIcon,
+  Save,
+  Activity,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -64,6 +66,9 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
   const [queueFilter, setQueueFilter] = useState<string>('ALL');
   const [instagramSessionId, setInstagramSessionId] = useState('');
   const [showSessionConfig, setShowSessionConfig] = useState(false);
+  const [workerStatus, setWorkerStatus] = useState<any>(null);
+  const [scanningAll, setScanningAll] = useState(false);
+  const [scanningSourceId, setScanningSourceId] = useState<string | null>(null);
 
   // Manual upload state
   const [manualCaption, setManualCaption] = useState('');
@@ -76,7 +81,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
     if (!token) return;
     try {
       setLoading(true);
-      const [settingsRes, sourcesRes, queueRes] = await Promise.all([
+      const [settingsRes, sourcesRes, queueRes, workerRes] = await Promise.all([
         fetch(`${API_URL}/api/ai/publisher/settings`, { headers: { Authorization: `Bearer ${token}` } }).then((r) =>
           r.json()
         ),
@@ -86,6 +91,11 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
         fetch(`${API_URL}/api/ai/publisher/queue?status=${queueFilter}`, {
           headers: { Authorization: `Bearer ${token}` },
         }).then((r) => r.json()),
+        fetch(`${API_URL}/api/ai/publisher/worker-status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((r) => r.json())
+          .catch(() => null),
       ]);
 
       if (!settingsRes.error) setSettings(settingsRes);
@@ -94,6 +104,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
         setQueue(queueRes.items);
         if (queueRes.counts) setCounts(queueRes.counts);
       }
+      if (workerRes && !workerRes.error) setWorkerStatus(workerRes);
     } catch (err) {
       console.error('Error cargando publicador IA:', err);
       toast.error('No se pudieron cargar los datos del Publicador IA', 'Error de Conexión');
@@ -224,6 +235,134 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
       toast.error('Error de comunicación con el servidor al escanear', 'Error de Conexión');
     } finally {
       setScanning(false);
+    }
+  };
+
+  // Escanear todas las cuentas registradas en segundo plano
+  const handleScanAllSources = async () => {
+    try {
+      setScanningAll(true);
+      const res = await fetch(`${API_URL}/api/ai/publisher/scan-all-sources`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(
+          data.message || 'Escaneo autónomo iniciado para todas las cuentas registradas.',
+          'Escaneo en Segundo Plano'
+        );
+        setTimeout(fetchData, 2500);
+      } else {
+        toast.info(data.error || 'No se pudo iniciar el escaneo', 'Aviso');
+      }
+    } catch (e) {
+      toast.error('Error de red al iniciar escaneo', 'Error');
+    } finally {
+      setScanningAll(false);
+    }
+  };
+
+  // Alternar estado activo / pausado de una cuenta individual
+  const handleToggleSource = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/ai/publisher/sources/${id}/toggle`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message, 'Monitoreo Actualizado');
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Error al actualizar cuenta', 'Error');
+      }
+    } catch (e) {
+      toast.error('Error de comunicación con el servidor', 'Error');
+    }
+  };
+
+  // Escanear una cuenta específica de inmediato
+  const handleScanSingleSource = async (source: any) => {
+    try {
+      setScanningSourceId(source.id);
+      const targetUrl = source.profileUrl || source.username;
+      const res = await fetch(`${API_URL}/api/ai/publisher/scan-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          profileUrl: targetUrl,
+          instagramSessionId: instagramSessionId.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(
+          data.message || `Escaneo completado para @${source.username}`,
+          'Escaneo Exitoso'
+        );
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Error al escanear la cuenta', 'Error');
+      }
+    } catch (e) {
+      toast.error('Error de red al escanear cuenta', 'Error');
+    } finally {
+      setScanningSourceId(null);
+    }
+  };
+
+  // Eliminar cuenta del monitoreo diario
+  const handleDeleteSource = async (id: string, username: string) => {
+    if (!confirm(`¿Deseas remover a @${username} de la lista de monitoreo diario?`)) return;
+    try {
+      const res = await fetch(`${API_URL}/api/ai/publisher/sources/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        toast.success(`Cuenta @${username} removida del monitoreo diario`, 'Cuenta Eliminada');
+        await fetchData();
+      } else {
+        toast.error('No se pudo eliminar la cuenta', 'Error');
+      }
+    } catch (e) {
+      toast.error('Error de conexión', 'Error');
+    }
+  };
+
+  // Guardar sessionid permanentemente en el servidor
+  const handleSaveSessionIdToServer = async () => {
+    try {
+      setSavingSettings(true);
+      const res = await fetch(`${API_URL}/api/ai/publisher/settings`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ instagramSessionId: instagramSessionId.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('qt_ig_session_id', instagramSessionId.trim());
+        }
+        toast.success(
+          'Cookie de sesión guardada permanentemente en el servidor. El worker funcionará de forma autónoma 24/7.',
+          'Sesión Guardada'
+        );
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Error al guardar cookie', 'Error');
+      }
+    } catch (e) {
+      toast.error('Error de red al guardar sesión', 'Error');
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -555,112 +694,87 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
         </div>
       </div>
 
-      {/* 3. MONITOREO DE PERFILES DE INSTAGRAM & ESCANEO INTELIGENTE */}
-      {/* 3. INGESTA INTELIGENTE: CAPTURAS DE INSTAGRAM & ESCANEO DE PERFILES */}
+      {/* 3. MONITOREO DIARIO 100% AUTÓNOMO DE INSTAGRAM Y PÁGINAS WEB */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-2 border-b border-slate-100">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-blue-600" />
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white shadow-xs">
+                <InstagramIcon className="w-4 h-4 text-white" />
+              </div>
               <h3 className="text-lg font-black text-slate-900 font-['Plus_Jakarta_Sans']">
-                Ingesta de Vacantes para Redactar con IA
+                Cuentas Monitoreadas (Búsqueda Diaria 100% Automática)
               </h3>
             </div>
-            <p className="text-xs text-slate-500">
-              Sube capturas de pantalla de posts de Instagram (las imágenes que guardes o descargues) o escanea el perfil directamente.
+            <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
+              Pega el enlace o nombre de cualquier perfil de Instagram una sola vez. Nuestro motor en segundo plano se encargará de todo: 
+              buscará publicaciones diariamente, analizará los afiches con IA visual (Gemini Visión) y publicará las vacantes automáticamente.
             </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleScanAllSources}
+              disabled={scanningAll || workerStatus?.isScanningSources || sources.length === 0}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2.5 rounded-2xl shadow-sm transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              title="Disparar escaneo de todos los perfiles de inmediato"
+            >
+              {scanningAll || workerStatus?.isScanningSources ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                  <span>Escaneando Cuentas...</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Escanear Todas las Cuentas Ahora</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Zona 1: Subida Múltiple de Capturas / Screenshots de Instagram (Infalible) */}
-        <div className="bg-gradient-to-br from-blue-50/50 via-slate-50 to-indigo-50/30 border-2 border-dashed border-blue-200 hover:border-blue-400 rounded-3xl p-6 sm:p-8 text-center transition space-y-4">
-          <div className="max-w-md mx-auto space-y-2">
-            <div className="w-14 h-14 bg-white rounded-2xl shadow-xs border border-blue-100 flex items-center justify-center mx-auto text-blue-600">
-              <UploadCloud className="w-7 h-7" />
-            </div>
-            <h4 className="font-black text-slate-900 text-base">
-              Arrastra aquí tus capturas o flyers de Instagram
-            </h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Selecciona una o varias imágenes a la vez (hasta 20 capturas). La IA analizará cada imagen, extraerá los requisitos, responsabilidades, salarios y correos de RRHH automáticamente.
-            </p>
+        {/* Estado Operativo del Motor en Segundo Plano */}
+        <div className="bg-gradient-to-r from-slate-50 via-blue-50/40 to-indigo-50/30 border border-slate-200/80 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-3 w-3">
+              {settings?.isActive ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </>
+              ) : (
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-slate-400"></span>
+              )}
+            </span>
+            <span className="font-bold text-slate-800">
+              {settings?.isActive
+                ? 'Motor Autónomo Activo: Monitoreando y publicando 24/7'
+                : 'Motor en Pausa: Reanuda el publicador arriba para activar el escaneo diario'}
+            </span>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <label className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-6 py-3 rounded-2xl shadow-md shadow-blue-600/20 transition cursor-pointer flex items-center gap-2">
-              <UploadCloud className="w-4 h-4" />
-              Seleccionar Imágenes ({manualFiles.length > 0 ? `${manualFiles.length} seleccionadas` : 'Subir Capturas'})
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) {
-                    const newFiles = Array.from(e.target.files);
-                    setManualFiles((prev) => [...prev, ...newFiles]);
-                  }
-                }}
-              />
-            </label>
-
-            {manualFiles.length > 0 && (
-              <button
-                type="button"
-                onClick={handleUploadBatch}
-                disabled={uploadingManual}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-6 py-3 rounded-2xl shadow-md shadow-emerald-600/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {uploadingManual ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" /> Encolando Vacantes...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 text-amber-300" /> Encolar {manualFiles.length} Vacantes con IA
-                  </>
-                )}
-              </button>
+          <div className="flex items-center gap-4 text-slate-500 font-medium text-[11px]">
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-blue-600" />
+              <span>
+                Frecuencia: <strong>Cada 12 horas</strong> (Automático)
+              </span>
+            </span>
+            {workerStatus?.nextScanInHours !== undefined && settings?.isActive && (
+              <span className="bg-white/80 border border-slate-200 px-2.5 py-1 rounded-lg text-slate-700 font-bold">
+                Próximo escaneo: ~{workerStatus.nextScanInHours}h
+              </span>
             )}
           </div>
-
-          {/* Miniaturas de Archivos Seleccionados */}
-          {manualFiles.length > 0 && (
-            <div className="pt-4 border-t border-slate-200/60 flex flex-wrap gap-2 justify-center">
-              {manualFiles.map((file, idx) => (
-                <div
-                  key={idx}
-                  className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-700 shadow-2xs"
-                >
-                  <span className="truncate max-w-[150px]">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setManualFiles((prev) => prev.filter((_, i) => i !== idx))}
-                    className="text-slate-400 hover:text-rose-600 font-black ml-1"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setManualFiles([])}
-                className="text-xs text-rose-600 font-bold hover:underline px-2 py-1"
-              >
-                Limpiar selección
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* Zona 2: Escaneo Web Universal (Páginas Web de Empleo, Portales o Instagram) */}
-        <div className="pt-4 border-t border-slate-100 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-              <Globe className="w-4 h-4 text-blue-600" /> Escanear Página Web de Empleos o Redes Sociales:
-            </span>
-            <span className="text-[11px] text-slate-400">Portales web (Tu Empleo RD, Aldaba, etc.) o Instagram</span>
-          </div>
+        {/* Formulario: Registrar nuevo perfil de Instagram o portal para monitoreo diario */}
+        <div className="space-y-2">
+          <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-pink-600" /> Agregar Cuenta de Instagram o Portal Web para Monitoreo Diario:
+          </label>
 
           <form onSubmit={handleScanProfile} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -671,70 +785,212 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                 type="text"
                 value={profileInput}
                 onChange={(e) => setProfileInput(e.target.value)}
-                placeholder="Pega el enlace web (ej. https://tuempleord.do/... o cualquier portal/vacante) o @perfil"
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
+                placeholder="Pega el link de Instagram (ej: https://www.instagram.com/empleosdr/ o @empleosdr)"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:bg-white transition shadow-2xs"
               />
             </div>
 
             <button
               type="submit"
               disabled={scanning || !profileInput.trim()}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs px-6 py-3 rounded-2xl transition flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer shrink-0"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-6 py-3 rounded-2xl transition flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 disabled:opacity-50 cursor-pointer shrink-0"
             >
               {scanning ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Analizando Página...
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Conectando y Registrando...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" /> Escanear Página / Perfil
+                  <Sparkles className="w-4 h-4 text-amber-300" /> Monitorear Diariamente
                 </>
               )}
             </button>
           </form>
+          <p className="text-[11px] text-slate-400 pl-1">
+            💡 Al registrar la cuenta, el sistema la guardará en la base de datos y la escaneará todos los días sin que tengas que volver a entrar.
+          </p>
+        </div>
 
-          {/* Configuración Opcional: Cookie de Sesión de Instagram */}
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => setShowSessionConfig(!showSessionConfig)}
-              className="text-[11px] font-bold text-slate-500 hover:text-blue-600 transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>🔑</span>
-              <span>
-                {showSessionConfig
-                  ? 'Ocultar configuración de sesión de Instagram'
-                  : '¿Deseas escanear perfiles de Instagram directamente sin bloqueo de Meta? (Configurar sessionid)'}
-              </span>
-            </button>
+        {/* Lista de Cuentas en Monitoreo Diario */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <span>Cuentas Registradas en Monitoreo ({sources.length}):</span>
+            </h4>
+            <span className="text-[11px] text-slate-400">
+              {sources.filter((s) => s.isActive).length} activas de {sources.length} totales
+            </span>
+          </div>
+
+          {sources.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl space-y-2">
+              <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center mx-auto text-slate-500">
+                <InstagramIcon className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-bold text-slate-700">Aún no has registrado cuentas para monitoreo</p>
+              <p className="text-[11px] text-slate-400 max-w-md mx-auto">
+                Pega el link de cualquier cuenta de Instagram o portal de empleo en el campo de arriba para que el backend empiece a buscar publicaciones diariamente de forma 100% automática.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {sources.map((s) => {
+                const isWeb = s.username.includes('.') || !s.profileUrl.includes('instagram.com');
+                const lastDate = s.lastScannedAt ? new Date(s.lastScannedAt).toLocaleString() : 'Pendiente';
+                const isThisScanning = scanningSourceId === s.id;
+
+                return (
+                  <div
+                    key={s.id}
+                    className={`p-4 rounded-2xl border transition flex flex-col justify-between gap-3 ${
+                      s.isActive
+                        ? 'bg-white border-slate-200 shadow-2xs hover:border-slate-300'
+                        : 'bg-slate-50/80 border-slate-200/60 opacity-75'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                            isWeb
+                              ? 'bg-blue-50 text-blue-600 border border-blue-100'
+                              : 'bg-pink-50 text-pink-600 border border-pink-100'
+                          }`}
+                        >
+                          {isWeb ? <Globe className="w-4 h-4" /> : <InstagramIcon className="w-4 h-4" />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-black text-xs text-slate-900 truncate">
+                              {isWeb ? s.username : `@${s.username}`}
+                            </span>
+                            <a
+                              href={s.profileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-slate-400 hover:text-blue-600 transition shrink-0"
+                              title="Ver perfil original"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                          <p className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                            {s.profileUrl}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Botón de alternar activo/pausado */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSource(s.id)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition cursor-pointer shrink-0 ${
+                          s.isActive
+                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                        }`}
+                        title={s.isActive ? 'Pausar monitoreo diario' : 'Reanudar monitoreo diario'}
+                      >
+                        {s.isActive ? '🟢 Activo' : '⏸️ Pausado'}
+                      </button>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                          <Clock className="w-3 h-3" />
+                          <span>Último escaneo: {lastDate}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-600">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                          <span>{s._count?.queueItems || 0} vacantes extraídas</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleScanSingleSource(s)}
+                          disabled={isThisScanning}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-lg transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                          title="Escanear esta cuenta ahora"
+                        >
+                          {isThisScanning ? (
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3" />
+                          )}
+                          <span>Revisar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSource(s.id, s.username)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition rounded-lg hover:bg-rose-50 cursor-pointer"
+                          title="Remover de monitoreo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Configuración de Sesión de Instagram (sessionid) para evitar bloqueos 24/7 */}
+        <div className="pt-4 border-t border-slate-100">
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <InstagramIcon className="w-4 h-4 text-pink-600" />
+                <h5 className="text-xs font-bold text-slate-800">
+                  Autenticación de Instagram en el Servidor (sessionid)
+                </h5>
+                {settings?.hasInstagramSession ? (
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Guardada en Servidor
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 text-amber-600" /> No configurada
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowSessionConfig(!showSessionConfig)}
+                className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+              >
+                {showSessionConfig ? 'Ocultar ajustes de sesión' : 'Configurar / Actualizar cookie'}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Instagram limita el acceso público anónimo con <code>429 Too Many Requests</code>. Para que el servidor pueda conectarse 24/7 de forma autónoma sin depender de tu navegador, puedes guardar la cookie <code>sessionid</code> de cualquier cuenta de Instagram en el backend.
+            </p>
 
             {showSessionConfig && (
-              <div className="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <InstagramIcon className="w-3.5 h-3.5 text-pink-600" />
-                      Cookie de Sesión de Instagram (sessionid)
-                    </h5>
-                    <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                      Instagram bloquea consultas automáticas anónimas con <code>429 Too Many Requests</code>. Para que el servidor pueda consultar perfiles públicos y descargar sus imágenes, pega aquí el valor de la cookie <code>sessionid</code> de cualquier cuenta de Instagram. Se guarda de forma local en tu navegador.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
+              <div className="space-y-2 pt-2 border-t border-slate-200/60">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="password"
                     value={instagramSessionId}
-                    onChange={(e) => {
-                      setInstagramSessionId(e.target.value);
-                      if (typeof window !== 'undefined') {
-                        localStorage.setItem('qt_ig_session_id', e.target.value.trim());
-                      }
-                    }}
-                    placeholder="Ejemplo: 68429184%3AKu28..."
+                    onChange={(e) => setInstagramSessionId(e.target.value)}
+                    placeholder="Pega aquí el valor de la cookie sessionid (ej: 68429184%3AKu28...)"
                     className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600"
                   />
+                  <button
+                    type="button"
+                    onClick={handleSaveSessionIdToServer}
+                    disabled={savingSettings || !instagramSessionId.trim()}
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Guardar en Servidor</span>
+                  </button>
                   {instagramSessionId && (
                     <button
                       type="button"
@@ -743,7 +999,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                         if (typeof window !== 'undefined') {
                           localStorage.removeItem('qt_ig_session_id');
                         }
-                        toast.info('Cookie de sesión eliminada', 'Sesión Limpiada');
+                        handleSaveSessionIdToServer();
                       }}
                       className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
                     >
@@ -752,49 +1008,109 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                   )}
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  💡 <strong>¿Cómo obtenerla?</strong> En tu navegador entra a <code>instagram.com</code>, presiona <code>F12</code> &gt; pestaña <strong>Application (o Almacenamiento)</strong> &gt; <strong>Cookies</strong> &gt; busca <strong>sessionid</strong> y copia su valor.
+                  💡 <strong>¿Cómo obtenerla?</strong> Abre <code>instagram.com</code> en tu navegador, pulsa <code>F12</code> &gt; pestaña <strong>Application</strong> (o Almacenamiento) &gt; <strong>Cookies</strong> &gt; copia el valor de <strong>sessionid</strong>.
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Fuentes y Portales Monitoreados */}
-        {sources.length > 0 && (
-          <div className="pt-2 border-t border-slate-100">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-              Fuentes y Portales Registrados ({sources.length})
+        {/* Zona Opcional: Subida Manual de Capturas / Screenshots (Alternativa si ya tienes las fotos) */}
+        <div className="pt-4 border-t border-slate-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+              <UploadCloud className="w-4 h-4 text-blue-600" /> ¿Tienes capturas o imágenes guardadas en tu computadora? (Opcional)
             </span>
-            <div className="flex flex-wrap gap-2">
-              {sources.map((s) => {
-                const isWeb = s.username.includes('.') || !s.profileUrl.includes('instagram.com');
-                return (
-                  <div
-                    key={s.id}
-                    className="bg-slate-100 hover:bg-slate-200 border border-slate-200/80 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-medium text-slate-700"
-                  >
-                    {isWeb ? (
-                      <Globe className="w-3.5 h-3.5 text-blue-600" />
-                    ) : (
-                      <InstagramIcon className="w-3.5 h-3.5 text-pink-600" />
-                    )}
-                    <span className="font-bold">{isWeb ? s.username : `@${s.username}`}</span>
-                    <span className="text-[10px] text-slate-400">({s._count?.queueItems || 0} vacantes en cola)</span>
-                    <a
-                      href={s.profileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-slate-400 hover:text-blue-600"
-                      title="Abrir enlace"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowManualForm(!showManualForm)}
+              className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+            >
+              {showManualForm ? 'Ocultar subida manual' : 'Subir imágenes locales'}
+            </button>
           </div>
-        )}
+
+          {showManualForm && (
+            <div className="bg-gradient-to-br from-blue-50/50 via-slate-50 to-indigo-50/30 border-2 border-dashed border-blue-200 hover:border-blue-400 rounded-3xl p-6 sm:p-8 text-center transition space-y-4">
+              <div className="max-w-md mx-auto space-y-2">
+                <div className="w-12 h-12 bg-white rounded-2xl shadow-xs border border-blue-100 flex items-center justify-center mx-auto text-blue-600">
+                  <UploadCloud className="w-6 h-6" />
+                </div>
+                <h4 className="font-black text-slate-900 text-sm">
+                  Arrastra aquí tus capturas o flyers de empleo
+                </h4>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Selecciona una o varias imágenes locales. La IA analizará cada afiche y extraerá todos los datos.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <label className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-6 py-2.5 rounded-2xl shadow-md shadow-blue-600/20 transition cursor-pointer flex items-center gap-2">
+                  <UploadCloud className="w-4 h-4" />
+                  Seleccionar Imágenes ({manualFiles.length > 0 ? `${manualFiles.length} seleccionadas` : 'Buscar en mi equipo'})
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        const newFiles = Array.from(e.target.files);
+                        setManualFiles((prev) => [...prev, ...newFiles]);
+                      }
+                    }}
+                  />
+                </label>
+
+                {manualFiles.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleUploadBatch}
+                    disabled={uploadingManual}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-6 py-2.5 rounded-2xl shadow-md shadow-emerald-600/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {uploadingManual ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" /> Encolando Vacantes...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 text-amber-300" /> Encolar {manualFiles.length} Vacantes con IA
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {manualFiles.length > 0 && (
+                <div className="pt-4 border-t border-slate-200/60 flex flex-wrap gap-2 justify-center">
+                  {manualFiles.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-700 shadow-2xs"
+                    >
+                      <span className="truncate max-w-[150px]">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setManualFiles((prev) => prev.filter((_, i) => i !== idx))}
+                        className="text-slate-400 hover:text-rose-600 font-black ml-1"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setManualFiles([])}
+                    className="text-xs text-rose-600 font-bold hover:underline px-2 py-1"
+                  >
+                    Limpiar selección
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 4. TABLERO DE COLA DE VACANTES & BORRADORES */}
