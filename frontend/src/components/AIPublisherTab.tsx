@@ -136,6 +136,16 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
     return () => clearInterval(interval);
   }, [workerStatus?.isScanningSources]);
 
+  // Evitar bloqueos CORP (ERR_BLOCKED_BY_RESPONSE.NotSameOrigin) canalizando imágenes externas de Instagram por el proxy
+  const getSafeImageUrl = (url: string | null | undefined) => {
+    if (!url) return '';
+    if (url.startsWith('/')) return `${API_URL}${url}`;
+    if (url.includes('fbcdn.net') || url.includes('cdninstagram.com')) {
+      return `${API_URL}/api/ai/publisher/proxy-image?url=${encodeURIComponent(url)}`;
+    }
+    return url;
+  };
+
   // Alternar pausa / reanudación
   const handleToggleActive = async () => {
     if (!settings) return;
@@ -1379,9 +1389,8 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                       {item.imageUrl && (
                         <div className="w-16 h-16 rounded-xl bg-slate-100 shrink-0 overflow-hidden border border-slate-200">
                           <img
-                            src={item.imageUrl.startsWith('/') ? `${API_URL}${item.imageUrl}` : item.imageUrl}
+                            src={getSafeImageUrl(item.imageUrl)}
                             alt="Post Instagram"
-                            referrerPolicy="no-referrer"
                             className="w-full h-full object-cover"
                             onError={(e: any) => {
                               e.target.style.display = 'none';
