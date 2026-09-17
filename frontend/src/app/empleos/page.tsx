@@ -252,27 +252,21 @@ function EmpleosContent() {
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-700 shrink-0">
-                        {job.company.logoUrl ? (
-                          <img
-                            src={
-                              job.company.logoUrl.includes('logo-quisqueya-talent.png')
-                                ? '/logo-quisqueya-talent.png'
-                                : job.company.logoUrl
-                            }
-                            alt={job.company.name}
-                            className="w-full h-full object-cover"
-                            onError={(e: any) => {
-                              e.currentTarget.src = '/icono.svg';
-                            }}
-                          />
-                        ) : (
-                          <img
-                            src="/icono.svg"
-                            alt="Quisqueya Talent"
-                            className="w-8 h-8 object-contain"
-                          />
-                        )}
+                      <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-1 shrink-0 shadow-2xs">
+                        <img
+                          src={
+                            job.company?.name?.toLowerCase().includes('quisqueya') ||
+                            !job.company?.logoUrl ||
+                            job.company.logoUrl.includes('quisqueya')
+                              ? '/icono.svg'
+                              : job.company.logoUrl
+                          }
+                          alt={job.company.name}
+                          className="w-full h-full object-contain"
+                          onError={(e: any) => {
+                            e.currentTarget.src = '/icono.svg';
+                          }}
+                        />
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">

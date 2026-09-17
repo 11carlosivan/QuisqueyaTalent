@@ -375,27 +375,21 @@ export default function JobDetailClient({
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs">
               <div className="flex flex-col sm:flex-row items-start justify-between gap-6 pb-6 border-b border-slate-100">
                 <div className="flex items-start gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center font-bold text-xl text-slate-700 shrink-0">
-                    {jobData.company?.logoUrl ? (
-                      <img
-                        src={
-                          jobData.company.logoUrl.includes('logo-quisqueya-talent.png')
-                            ? '/logo-quisqueya-talent.png'
-                            : jobData.company.logoUrl
-                        }
-                        alt={jobData.company.name}
-                        className="w-full h-full object-cover"
-                        onError={(e: any) => {
-                          e.currentTarget.src = '/icono.svg';
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src="/icono.svg"
-                        alt="Quisqueya Talent"
-                        className="w-10 h-10 object-contain"
-                      />
-                    )}
+                  <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-2 shrink-0 shadow-2xs">
+                    <img
+                      src={
+                        jobData.company?.name?.toLowerCase().includes('quisqueya') ||
+                        !jobData.company?.logoUrl ||
+                        jobData.company.logoUrl.includes('quisqueya')
+                          ? '/icono.svg'
+                          : jobData.company.logoUrl
+                      }
+                      alt={jobData.company?.name || 'Quisqueya Talent'}
+                      className="w-full h-full object-contain"
+                      onError={(e: any) => {
+                        e.currentTarget.src = '/icono.svg';
+                      }}
+                    />
                   </div>
                   <div>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-[#001428] font-['Plus_Jakarta_Sans'] leading-tight mb-2">
@@ -682,27 +676,21 @@ export default function JobDetailClient({
                   Sobre la empresa
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-700 shrink-0">
-                    {jobData.company?.logoUrl ? (
-                      <img
-                        src={
-                          jobData.company.logoUrl.includes('logo-quisqueya-talent.png')
-                            ? '/logo-quisqueya-talent.png'
-                            : jobData.company.logoUrl
-                        }
-                        alt={jobData.company.name}
-                        className="w-full h-full object-cover"
-                        onError={(e: any) => {
-                          e.currentTarget.src = '/icono.svg';
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src="/icono.svg"
-                        alt="Quisqueya Talent"
-                        className="w-7 h-7 object-contain"
-                      />
-                    )}
+                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-1.5 shrink-0 shadow-2xs">
+                    <img
+                      src={
+                        jobData.company?.name?.toLowerCase().includes('quisqueya') ||
+                        !jobData.company?.logoUrl ||
+                        jobData.company.logoUrl.includes('quisqueya')
+                          ? '/icono.svg'
+                          : jobData.company.logoUrl
+                      }
+                      alt={jobData.company?.name || 'Quisqueya Talent'}
+                      className="w-full h-full object-contain"
+                      onError={(e: any) => {
+                        e.currentTarget.src = '/icono.svg';
+                      }}
+                    />
                   </div>
                   <div>
                     <div className="font-bold text-sm text-slate-800">{jobData.company?.name}</div>

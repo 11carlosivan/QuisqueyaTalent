@@ -156,20 +156,21 @@ export default function CandidateApplicationsPage() {
                   {/* Info Superior */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-700 shrink-0">
-                        {app.job?.company?.logoUrl ? (
-                          <img
-                            src={app.job.company.logoUrl}
-                            alt={app.job.company.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <img
-                            src="/icono.svg"
-                            alt="Quisqueya Talent"
-                            className="w-8 h-8 object-contain"
-                          />
-                        )}
+                      <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-1 shrink-0 shadow-2xs">
+                        <img
+                          src={
+                            app.job?.company?.name?.toLowerCase().includes('quisqueya') ||
+                            !app.job?.company?.logoUrl ||
+                            app.job.company.logoUrl.includes('quisqueya')
+                              ? '/icono.svg'
+                              : app.job.company.logoUrl
+                          }
+                          alt={app.job?.company?.name || 'Quisqueya Talent'}
+                          className="w-full h-full object-contain"
+                          onError={(e: any) => {
+                            e.currentTarget.src = '/icono.svg';
+                          }}
+                        />
                       </div>
                       <div>
                         <Link
