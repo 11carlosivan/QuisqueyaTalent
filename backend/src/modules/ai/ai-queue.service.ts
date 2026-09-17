@@ -634,11 +634,13 @@ export class AIQueueService {
       throw new Error('Elemento de cola no encontrado');
     }
 
+    // Re-analizar desde cero forzando la imagen como fuente principal
     const jobData = await AIService.parseJobFromPost({
       caption: item.captionText || '',
       imageUrl: item.imageUrl || undefined,
     });
 
+    // Actualizar el extractedData en la cola
     const updated = await prisma.aiJobQueue.update({
       where: { id },
       data: {
@@ -647,11 +649,63 @@ export class AIQueueService {
       },
     });
 
+    // Si ya hay un Job publicado vinculado, actualizar también su título, descripción, etc.
+    if (item.jobId && jobData.isJobOffer) {
+      try {
+        const existingJob = await prisma.job.findUnique({ where: { id: item.jobId } });
+        if (existingJob) {
+          // Construir slug nuevo basado en el título extraído de la imagen
+          const rawSlug = `${jobData.title}-${jobData.province || existingJob.province || 'rd'}`
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)+/g, '');
+          const slug = `${rawSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+          // Agregar nota de transparencia si hay empresa
+          let fullDescription = jobData.description;
+          if (jobData.companyName && jobData.companyName !== 'Empresa Confidencial') {
+            fullDescription += `\n\n📌 *Oportunidad gestionada por Quisqueya Talent para: ${jobData.companyName}*`;
+          }
+
+          await prisma.job.update({
+            where: { id: item.jobId },
+            data: {
+              title: jobData.title,
+              slug,
+              description: fullDescription,
+              requirements: jobData.requirements,
+              responsibilities: jobData.responsibilities,
+              benefits: jobData.benefits,
+              skills: jobData.skills || [],
+              province: jobData.province,
+              city: jobData.city || undefined,
+              jobType: jobData.jobType,
+              workplaceType: jobData.workplaceType,
+              experienceLevel: jobData.experienceLevel,
+              applyMethod: jobData.applyMethod,
+              applyEmail: jobData.applyEmail || undefined,
+              salaryMin: jobData.salaryMin ?? undefined,
+              salaryMax: jobData.salaryMax ?? undefined,
+              salaryCurrency: jobData.salaryCurrency || 'DOP',
+              isSalaryPublic: jobData.isSalaryPublic ?? false,
+            },
+          });
+
+          console.log(`✅ Job ${item.jobId} actualizado con título: "${jobData.title}" (re-extraído desde imagen)`);
+        }
+      } catch (jobUpdateErr) {
+        console.error(`⚠️ Error actualizando Job ${item.jobId} tras re-extracción:`, jobUpdateErr);
+      }
+    }
+
     return {
       item: updated,
       extractedData: jobData,
     };
   }
+
 
   /**
    * Re-analiza en lote todos los elementos en cola para corregir falsos positivos y títulos erróneos
@@ -663,29 +717,23 @@ export class AIQueueService {
     });
 
     let updatedCount = 0;
+    let errorCount = 0;
+
     for (const item of pendingItems) {
       try {
-        const jobData = await AIService.parseJobFromPost({
-          caption: item.captionText || '',
-          imageUrl: item.imageUrl || undefined,
-        });
-
-        await prisma.aiJobQueue.update({
-          where: { id: item.id },
-          data: {
-            extractedData: JSON.stringify(jobData),
-            isJobOffer: jobData.isJobOffer,
-          },
-        });
+        // Reutilizar el método único para mantener consistencia y actualizar Jobs publicados
+        await AIQueueService.reExtractQueueItem(item.id);
         updatedCount++;
       } catch (err) {
         console.error(`Error re-analizando cola ${item.id}:`, err);
+        errorCount++;
       }
     }
 
     return {
       total: pendingItems.length,
       updated: updatedCount,
+      errors: errorCount,
     };
   }
 }
