@@ -136,11 +136,27 @@ router.patch('/publisher/settings', authenticate, requireRole(Role.ADMIN, Role.S
   }
 });
 
+// 6.1 Probar en vivo la sesión de Instagram conectándose a un perfil público
+router.post('/publisher/verify-session', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
+  try {
+    const candidate = req.body?.instagramSessionId;
+    const result = await AIQueueService.verifyInstagramSession(candidate);
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Error verificando sesión de Instagram:', error);
+    return res.status(500).json({ valid: false, message: error.message || 'Error verificando sesión' });
+  }
+});
+
 // 7. Escanear portal web de empleos, enlace individual o perfil de Instagram
 router.post('/publisher/scan-profile', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
     const targetUrl = req.body.profileUrl || req.body.url;
-    const instagramSessionId = req.body.instagramSessionId || AIQueueService.getRawSessionId() || process.env.INSTAGRAM_SESSION_ID;
+    const customSession = req.body.instagramSessionId;
+    const instagramSessionId = (customSession && typeof customSession === 'string' && customSession.trim().length > 5)
+      ? customSession.trim()
+      : await AIQueueService.getRawSessionIdAsync();
+
     if (!targetUrl) {
       return res.status(400).json({ error: 'Debes proporcionar la URL de la página web de empleos, vacante o @usuario' });
     }

@@ -139,7 +139,7 @@ export class AIPublisherWorker {
       }
 
       console.log(`🤖 [AIPublisherWorker] Iniciando escaneo de ${sources.length} perfiles (forzado: ${force})...`);
-      const sessionId = AIQueueService.getRawSessionId();
+      const sessionId = await AIQueueService.getRawSessionIdAsync();
       const maxDaysOld = settings.maxDaysOld || 30;
 
       for (const source of sources) {
@@ -152,7 +152,7 @@ export class AIPublisherWorker {
           totalNew += result.newEnqueued;
           skippedDuplicatesTotal += result.skippedDuplicates;
 
-          if (result.sourceType === 'INSTAGRAM_PROFILE' && result.totalFound === 0 && !sessionId) {
+          if (result.sourceType === 'INSTAGRAM_PROFILE' && result.totalFound === 0 && (!sessionId || result.message?.includes('429') || result.message?.includes('bloqueó'))) {
             blockedByInstagramCount++;
           }
 

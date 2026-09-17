@@ -66,6 +66,12 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
   const [queueFilter, setQueueFilter] = useState<string>('ALL');
   const [instagramSessionId, setInstagramSessionId] = useState('');
   const [showSessionConfig, setShowSessionConfig] = useState(false);
+  const [verifyingSession, setVerifyingSession] = useState(false);
+  const [sessionVerificationResult, setSessionVerificationResult] = useState<{
+    valid?: boolean;
+    message?: string;
+    postsDetected?: number;
+  } | null>(null);
   const [workerStatus, setWorkerStatus] = useState<any>(null);
   const [scanningAll, setScanningAll] = useState(false);
   const [scanningSourceId, setScanningSourceId] = useState<string | null>(null);
@@ -389,6 +395,8 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
           'Sesión Guardada'
         );
         await fetchData();
+        // Probar automáticamente la conexión después de guardar
+        handleVerifySession();
       } else {
         toast.error(data.error || 'Error al guardar cookie', 'Error');
       }
@@ -396,6 +404,34 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
       toast.error('Error de red al guardar sesión', 'Error');
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  // Verificar activamente la sesión de Instagram contra el servidor y Meta
+  const handleVerifySession = async () => {
+    try {
+      setVerifyingSession(true);
+      setSessionVerificationResult(null);
+      const res = await fetch(`${API_URL}/api/ai/publisher/verify-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ instagramSessionId: instagramSessionId.trim() || undefined }),
+      });
+      const data = await res.json();
+      setSessionVerificationResult(data);
+      if (data.valid) {
+        toast.success(data.message || 'Sesión de Instagram 100% válida y activa.', '¡Conexión Exitosa!');
+      } else {
+        toast.warning(data.message || 'Instagram no aceptó la sesión.', 'Sesión Inválida o Expirada');
+      }
+    } catch (e: any) {
+      setSessionVerificationResult({ valid: false, message: 'Error de red al verificar conexión con Instagram.' });
+      toast.error('Error de red al verificar sesión', 'Error');
+    } finally {
+      setVerifyingSession(false);
     }
   };
 
@@ -1051,12 +1087,15 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
             </p>
 
             {showSessionConfig && (
-              <div className="space-y-2 pt-2 border-t border-slate-200/60">
+              <div className="space-y-3 pt-2 border-t border-slate-200/60">
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="password"
                     value={instagramSessionId}
-                    onChange={(e) => setInstagramSessionId(e.target.value)}
+                    onChange={(e) => {
+                      setInstagramSessionId(e.target.value);
+                      setSessionVerificationResult(null);
+                    }}
                     placeholder="Pega aquí el valor de la cookie sessionid (ej: 68429184%3AKu28...)"
                     className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600"
                   />
@@ -1067,13 +1106,34 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                     className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     <Save className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Guardar en Servidor</span>
+                    <span>{savingSettings ? 'Guardando...' : 'Guardar en Servidor'}</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={handleVerifySession}
+                    disabled={verifyingSession || (!instagramSessionId.trim() && !settings?.hasInstagramSession)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {verifyingSession ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Probando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Activity className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Probar Conexión</span>
+                      </>
+                    )}
+                  </button>
+
                   {instagramSessionId && (
                     <button
                       type="button"
                       onClick={() => {
                         setInstagramSessionId('');
+                        setSessionVerificationResult(null);
                         if (typeof window !== 'undefined') {
                           localStorage.removeItem('qt_ig_session_id');
                         }
@@ -1085,6 +1145,34 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                     </button>
                   )}
                 </div>
+
+                {/* Banner de Diagnóstico en Tiempo Real */}
+                {sessionVerificationResult && (
+                  <div
+                    className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
+                      sessionVerificationResult.valid
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                        : 'bg-rose-50 text-rose-900 border-rose-300'
+                    }`}
+                  >
+                    {sessionVerificationResult.valid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <div className="space-y-0.5">
+                      <p className="font-bold">
+                        {sessionVerificationResult.valid
+                          ? '✅ Verificación Exitosa con Instagram'
+                          : '⚠️ Fallo de Autenticación con Instagram'}
+                      </p>
+                      <p className="text-[11px] leading-relaxed opacity-90">
+                        {sessionVerificationResult.message}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="text-[10px] text-slate-400">
                   💡 <strong>¿Cómo obtenerla?</strong> Abre <code>instagram.com</code> en tu navegador, pulsa <code>F12</code> &gt; pestaña <strong>Application</strong> (o Almacenamiento) &gt; <strong>Cookies</strong> &gt; copia el valor de <strong>sessionid</strong>.
                 </div>

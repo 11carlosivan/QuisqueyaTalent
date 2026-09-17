@@ -447,6 +447,7 @@ model AiJobSetting {
   publishMode        String    @default("DRAFT")
   maxDaysOld         Int       @default(30)
   officialCompanyId  String?
+  instagramSessionId String?   @db.Text
   lastRunAt          DateTime?
   updatedAt          DateTime  @updatedAt
 

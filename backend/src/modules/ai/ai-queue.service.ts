@@ -8,6 +8,8 @@ import OfficialCompanyService from '../companies/official-company.service';
 const uploadsDir = path.join(process.cwd(), 'uploads');
 const configFile = path.join(uploadsDir, 'ai-config.json');
 
+let inMemorySessionId = (process.env.INSTAGRAM_SESSION_ID || '').trim();
+
 function readConfigFile(): { instagramSessionId?: string } {
   try {
     if (fs.existsSync(configFile)) {
@@ -27,6 +29,7 @@ function writeConfigFile(data: { instagramSessionId?: string }) {
     const updated = { ...current, ...data };
     fs.writeFileSync(configFile, JSON.stringify(updated, null, 2), 'utf8');
     if (updated.instagramSessionId) {
+      inMemorySessionId = updated.instagramSessionId;
       process.env.INSTAGRAM_SESSION_ID = updated.instagramSessionId;
     }
   } catch (e) {
@@ -34,15 +37,16 @@ function writeConfigFile(data: { instagramSessionId?: string }) {
   }
 }
 
-// Inicializar variable en proceso si existe archivo
+// Inicializar variable en memoria si existe archivo local
 const initConfig = readConfigFile();
 if (initConfig.instagramSessionId) {
+  inMemorySessionId = initConfig.instagramSessionId;
   process.env.INSTAGRAM_SESSION_ID = initConfig.instagramSessionId;
 }
 
 export class AIQueueService {
   /**
-   * Obtiene la configuración del publicador IA
+   * Obtiene la configuración del publicador IA directamente de la base de datos
    */
   static async getSettings() {
     let settings = await prisma.aiJobSetting.findUnique({
@@ -64,28 +68,54 @@ export class AIQueueService {
       });
     }
 
+    // Prioridad de sesión: 1. Base de datos, 2. Variable en memoria, 3. Archivo config, 4. Env var
+    const dbSession = settings.instagramSessionId?.trim();
     const extraConfig = readConfigFile();
-    const sessionId = extraConfig.instagramSessionId || process.env.INSTAGRAM_SESSION_ID || '';
-    const maskedSession = sessionId ? `${sessionId.slice(0, 6)}••••••••${sessionId.slice(-4)}` : '';
+    const resolvedSession = dbSession || inMemorySessionId || extraConfig.instagramSessionId || process.env.INSTAGRAM_SESSION_ID || '';
+
+    if (resolvedSession) {
+      inMemorySessionId = resolvedSession;
+      process.env.INSTAGRAM_SESSION_ID = resolvedSession;
+    }
+
+    const maskedSession = resolvedSession ? `${resolvedSession.slice(0, 6)}••••••••${resolvedSession.slice(-4)}` : '';
 
     return {
       ...settings,
       officialCompany: company,
       instagramSessionId: maskedSession,
-      hasInstagramSession: Boolean(sessionId),
+      hasInstagramSession: Boolean(resolvedSession),
     };
   }
 
   /**
-   * Obtiene la cookie de sesión raw de Instagram sin enmascarar
+   * Obtiene la cookie de sesión raw de Instagram sin enmascarar (desde memoria o base de datos)
    */
   static getRawSessionId(): string {
+    if (inMemorySessionId) return inMemorySessionId;
     const extraConfig = readConfigFile();
     return (extraConfig.instagramSessionId || process.env.INSTAGRAM_SESSION_ID || '').trim();
   }
 
   /**
-   * Actualiza la configuración del publicador IA (pausa, vacantes por hora, modo, sesión de instagram)
+   * Obtiene la cookie de sesión de forma asíncrona garantizando lectura directa de la base de datos
+   */
+  static async getRawSessionIdAsync(): Promise<string> {
+    try {
+      const setting = await prisma.aiJobSetting.findUnique({ where: { id: 'default' } });
+      const dbSession = setting?.instagramSessionId?.trim();
+      if (dbSession) {
+        inMemorySessionId = dbSession;
+        process.env.INSTAGRAM_SESSION_ID = dbSession;
+        return dbSession;
+      }
+    } catch (e) {}
+
+    return this.getRawSessionId();
+  }
+
+  /**
+   * Actualiza la configuración del publicador IA guardándola permanentemente en MySQL
    */
   static async updateSettings(data: {
     isActive?: boolean;
@@ -94,8 +124,12 @@ export class AIQueueService {
     maxDaysOld?: number;
     instagramSessionId?: string;
   }) {
-    if (data.instagramSessionId !== undefined) {
-      writeConfigFile({ instagramSessionId: data.instagramSessionId.trim() });
+    const cleanSession = data.instagramSessionId !== undefined ? data.instagramSessionId.trim() : undefined;
+
+    if (cleanSession !== undefined) {
+      inMemorySessionId = cleanSession;
+      process.env.INSTAGRAM_SESSION_ID = cleanSession;
+      writeConfigFile({ instagramSessionId: cleanSession });
     }
 
     const updated = await prisma.aiJobSetting.upsert({
@@ -105,6 +139,7 @@ export class AIQueueService {
         ...(data.jobsPerHour !== undefined && { jobsPerHour: Math.max(1, Number(data.jobsPerHour)) }),
         ...(data.publishMode !== undefined && { publishMode: data.publishMode }),
         ...(data.maxDaysOld !== undefined && { maxDaysOld: Math.max(1, Number(data.maxDaysOld)) }),
+        ...(cleanSession !== undefined && { instagramSessionId: cleanSession }),
       },
       create: {
         id: 'default',
@@ -112,20 +147,105 @@ export class AIQueueService {
         jobsPerHour: data.jobsPerHour ?? 2,
         publishMode: data.publishMode ?? 'DRAFT',
         maxDaysOld: data.maxDaysOld ?? 30,
+        instagramSessionId: cleanSession || null,
       },
     });
 
     const company = await OfficialCompanyService.getOfficialCompany();
-    const extraConfig = readConfigFile();
-    const sessionId = extraConfig.instagramSessionId || process.env.INSTAGRAM_SESSION_ID || '';
-    const maskedSession = sessionId ? `${sessionId.slice(0, 6)}••••••••${sessionId.slice(-4)}` : '';
+    const effectiveSession = updated.instagramSessionId || inMemorySessionId || '';
+    const maskedSession = effectiveSession ? `${effectiveSession.slice(0, 6)}••••••••${effectiveSession.slice(-4)}` : '';
 
     return {
       ...updated,
       officialCompany: company,
       instagramSessionId: maskedSession,
-      hasInstagramSession: Boolean(sessionId),
+      hasInstagramSession: Boolean(effectiveSession),
     };
+  }
+
+  /**
+   * Verifica activamente una cookie de sesión de Instagram haciendo una petición de prueba
+   */
+  static async verifyInstagramSession(candidateSession?: string): Promise<{
+    valid: boolean;
+    message: string;
+    statusCode?: number;
+    postsDetected?: number;
+  }> {
+    const rawSession = (candidateSession !== undefined ? candidateSession : await this.getRawSessionIdAsync()).trim();
+
+    if (!rawSession || rawSession.length < 5) {
+      return {
+        valid: false,
+        message: 'No hay ninguna cookie sessionid configurada para probar.',
+      };
+    }
+
+    try {
+      const cleanSession = rawSession.replace(/^["']|["']$/g, '').trim();
+      let cookieHeader = '';
+      if (cleanSession.includes(';')) {
+        cookieHeader = cleanSession.replace(/^Cookie:\s*/i, '');
+      } else {
+        const value = cleanSession.replace(/^sessionid=/, '').trim();
+        const dsUserIdMatch = value.match(/^(\d+)/);
+        const dsUserId = dsUserIdMatch ? dsUserIdMatch[1] : '';
+        cookieHeader = `sessionid=${value};${dsUserId ? ` ds_user_id=${dsUserId};` : ''}`;
+      }
+
+      const testUser = 'empleos_parati_rd';
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${testUser}`, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'x-ig-app-id': '936619743392459',
+          'x-asbd-id': '129477',
+          'Accept-Language': 'es-DO,es;q=0.9,en;q=0.8',
+          Cookie: cookieHeader,
+          Referer: `https://www.instagram.com/${testUser}/`,
+          Accept: '*/*',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const json: any = await res.json();
+        const edges = json?.data?.user?.edge_owner_to_timeline_media?.edges || [];
+        return {
+          valid: true,
+          statusCode: res.status,
+          postsDetected: edges.length,
+          message: `¡Sesión de Instagram 100% activa y válida! Se verificó la lectura de @${testUser} (${edges.length} publicaciones encontradas).`,
+        };
+      } else if (res.status === 401 || res.status === 403) {
+        return {
+          valid: false,
+          statusCode: res.status,
+          message: `Instagram rechazó la sesión (HTTP ${res.status}). La cookie sessionid expiró o no pertenece a una cuenta activa. Por favor renueva tu sessionid.`,
+        };
+      } else if (res.status === 429) {
+        return {
+          valid: false,
+          statusCode: res.status,
+          message: `Instagram devolvió HTTP 429 (Límite de peticiones de Meta). Espera unos minutos o proporciona una cookie de sesión fresca.`,
+        };
+      } else {
+        return {
+          valid: false,
+          statusCode: res.status,
+          message: `Instagram respondió con código HTTP ${res.status}.`,
+        };
+      }
+    } catch (e: any) {
+      return {
+        valid: false,
+        message: `Error de red al conectar con Instagram: ${e.message || 'Tiempo de espera agotado'}`,
+      };
+    }
   }
 
   /**

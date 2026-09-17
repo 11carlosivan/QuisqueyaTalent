@@ -339,85 +339,183 @@ export class InstagramScraperService {
   /**
    * Intenta extraer posts recientes de un perfil de Instagram usando múltiples estrategias
    */
+  /**
+   * Intenta extraer posts recientes de un perfil de Instagram usando múltiples estrategias
+   */
   static async fetchProfilePosts(username: string, sessionId?: string): Promise<ScrapedPost[]> {
     const posts: ScrapedPost[] = [];
+    const cleanUser = this.cleanUsername(username);
+
+    // 1. Obtener la sesión activa garantizada
     let rawSession = (sessionId || process.env.INSTAGRAM_SESSION_ID || '').trim();
     rawSession = rawSession.replace(/^["']|["']$/g, '').trim();
 
-    // Estrategia 1: Con sesión de Instagram (Meta oficial con sessionid, infalible para perfiles públicos)
-    if (rawSession && rawSession.length > 5) {
+    if (!rawSession) {
       try {
-        console.log(`[Instagram Scraper] Consultando @${username} con sessionid (${rawSession.slice(0, 8)}...)...`);
+        const setting = await prisma.aiJobSetting.findUnique({ where: { id: 'default' } });
+        if (setting?.instagramSessionId) {
+          rawSession = setting.instagramSessionId.trim();
+        }
+      } catch (e) {}
+    }
+
+    // Preparar encabezado Cookie normalizado
+    let cookieHeader = '';
+    if (rawSession && rawSession.length > 5) {
+      if (rawSession.includes(';')) {
+        cookieHeader = rawSession.replace(/^Cookie:\s*/i, '');
+      } else {
+        const cleanSession = rawSession.replace(/^sessionid=/, '').trim();
+        const dsUserIdMatch = cleanSession.match(/^(\d+)/);
+        const dsUserId = dsUserIdMatch ? dsUserIdMatch[1] : '';
+        cookieHeader = `sessionid=${cleanSession};${dsUserId ? ` ds_user_id=${dsUserId};` : ''}`;
+      }
+    }
+
+    // Helper para mapear nodos devueltos por Instagram
+    const parseNodes = (edges: any[]) => {
+      const results: ScrapedPost[] = [];
+      for (const edge of edges) {
+        const node = edge.node || edge;
+        if (!node) continue;
+
+        const shortcode = node.shortcode || node.code || node.id;
+        if (!shortcode) continue;
+
+        const caption =
+          node.edge_media_to_caption?.edges?.[0]?.node?.text ||
+          node.caption?.text ||
+          node.caption ||
+          '';
+        const imageUrl =
+          node.display_url ||
+          node.display_src ||
+          node.thumbnail_src ||
+          node.image_versions2?.candidates?.[0]?.url ||
+          '';
+        const timestamp = node.taken_at_timestamp
+          ? new Date(node.taken_at_timestamp * 1000)
+          : node.device_timestamp
+          ? new Date(node.device_timestamp * 1000)
+          : new Date();
+
+        results.push({
+          id: shortcode,
+          url: `https://www.instagram.com/p/${shortcode}/`,
+          caption: typeof caption === 'string' ? caption : '',
+          imageUrl: typeof imageUrl === 'string' ? imageUrl : '',
+          publishedAt: timestamp,
+        });
+      }
+      return results;
+    };
+
+    // Estrategia 1: Consulta oficial a web_profile_info con headers de escritorio Chrome
+    if (cookieHeader) {
+      try {
+        console.log(`[Instagram Scraper] Consultando @${cleanUser} en Instagram con sesión...`);
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 12000);
 
-        // Construir cookie header completo
-        let cookieHeader = '';
-        if (rawSession.includes(';')) {
-          cookieHeader = rawSession.replace(/^Cookie:\s*/i, '');
-        } else {
-          const cleanSession = rawSession.replace(/^sessionid=/, '').trim();
-          const dsUserIdMatch = cleanSession.match(/^(\d+)/);
-          const dsUserId = dsUserIdMatch ? dsUserIdMatch[1] : '';
-          cookieHeader = `sessionid=${cleanSession};${dsUserId ? ` ds_user_id=${dsUserId};` : ''}`;
-        }
-
-        const response = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`, {
+        const response = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${cleanUser}`, {
           headers: {
             'User-Agent':
-              'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'x-ig-app-id': '936619743392459',
             'x-asbd-id': '129477',
+            'x-requested-with': 'XMLHttpRequest',
             'Accept-Language': 'es-DO,es;q=0.9,en;q=0.8',
             Cookie: cookieHeader,
-            Referer: `https://www.instagram.com/${username}/`,
+            Referer: `https://www.instagram.com/${cleanUser}/`,
             Accept: '*/*',
           },
           signal: controller.signal,
         });
         clearTimeout(timeout);
 
-        console.log(`[Instagram Scraper] Respuesta de Instagram para @${username}: HTTP ${response.status}`);
+        console.log(`[Instagram Scraper] Respuesta web_profile_info para @${cleanUser}: HTTP ${response.status}`);
 
         if (response.ok) {
           const json: any = await response.json();
           const edges = json?.data?.user?.edge_owner_to_timeline_media?.edges || [];
-          for (const edge of edges) {
-            const node = edge.node;
-            if (!node) continue;
-
-            const shortcode = node.shortcode || node.id;
-            const caption = node.edge_media_to_caption?.edges?.[0]?.node?.text || '';
-            const imageUrl = node.display_url || node.thumbnail_src || '';
-            const timestamp = node.taken_at_timestamp ? new Date(node.taken_at_timestamp * 1000) : new Date();
-
-            posts.push({
-              id: shortcode,
-              url: `https://www.instagram.com/p/${shortcode}/`,
-              caption,
-              imageUrl,
-              publishedAt: timestamp,
-            });
-          }
-          if (posts.length > 0) return posts;
+          const parsed = parseNodes(edges);
+          if (parsed.length > 0) return parsed;
         }
-      } catch (e) {
-        console.warn('Fallo consulta con sessionid a Instagram:', e);
+      } catch (e: any) {
+        console.warn(`[Instagram Scraper] Fallo web_profile_info para @${cleanUser}:`, e?.message);
       }
+
+      // Estrategia 2: GraphQL Query oficial de Instagram Web
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        const variables = JSON.stringify({ data: { count: 12 }, username: cleanUser });
+        const gqlUrl = `https://www.instagram.com/graphql/query/?doc_id=7427845727339794&variables=${encodeURIComponent(variables)}`;
+
+        const gqlRes = await fetch(gqlUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'x-ig-app-id': '936619743392459',
+            Cookie: cookieHeader,
+            Referer: `https://www.instagram.com/${cleanUser}/`,
+            Accept: '*/*',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (gqlRes.ok) {
+          const gqlJson: any = await gqlRes.json();
+          const edges =
+            gqlJson?.data?.user?.edge_owner_to_timeline_media?.edges ||
+            gqlJson?.data?.xdt_api__v1__feed__user_timeline_graphql_connection?.edges ||
+            [];
+          const parsed = parseNodes(edges);
+          if (parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+
+      // Estrategia 3: User-Agent móvil con sesión
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        const mobRes = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${cleanUser}`, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+            'x-ig-app-id': '936619743392459',
+            'x-asbd-id': '129477',
+            Cookie: cookieHeader,
+            Referer: `https://www.instagram.com/${cleanUser}/`,
+            Accept: '*/*',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (mobRes.ok) {
+          const mobJson: any = await mobRes.json();
+          const edges = mobJson?.data?.user?.edge_owner_to_timeline_media?.edges || [];
+          const parsed = parseNodes(edges);
+          if (parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
     }
 
-    // Estrategia 2: Consulta directa sin sesión con headers móviles
+    // Estrategia 4: Consulta anónima directa
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 7000);
+      const timeout = setTimeout(() => controller.abort(), 6000);
 
-      const response = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`, {
+      const response = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${cleanUser}`, {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
           'x-ig-app-id': '936619743392459',
-          'Accept-Language': 'es-DO,es;q=0.9,en;q=0.8',
-          Referer: `https://www.instagram.com/${username}/`,
+          Referer: `https://www.instagram.com/${cleanUser}/`,
         },
         signal: controller.signal,
       });
@@ -426,73 +524,10 @@ export class InstagramScraperService {
       if (response.ok) {
         const json: any = await response.json();
         const edges = json?.data?.user?.edge_owner_to_timeline_media?.edges || [];
-        for (const edge of edges) {
-          const node = edge.node;
-          if (!node) continue;
-
-          const shortcode = node.shortcode || node.id;
-          const caption = node.edge_media_to_caption?.edges?.[0]?.node?.text || '';
-          const imageUrl = node.display_url || node.thumbnail_src || '';
-          const timestamp = node.taken_at_timestamp ? new Date(node.taken_at_timestamp * 1000) : new Date();
-
-          posts.push({
-            id: shortcode,
-            url: `https://www.instagram.com/p/${shortcode}/`,
-            caption,
-            imageUrl,
-            publishedAt: timestamp,
-          });
-        }
+        const parsed = parseNodes(edges);
+        if (parsed.length > 0) return parsed;
       }
     } catch (e) {}
-
-    // Estrategia 2: Espejo web público
-    if (posts.length === 0) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 7000);
-
-        const htmlResp = await fetch(`https://imginn.com/${username}/`, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          },
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        if (htmlResp.ok) {
-          const html = await htmlResp.text();
-          const matches = [...html.matchAll(/href="\/p\/([a-zA-Z0-9_-]+)\/"/g)];
-          const seenShortcodes = new Set<string>();
-
-          for (const m of matches) {
-            const shortcode = m[1];
-            if (!shortcode || seenShortcodes.has(shortcode)) continue;
-            seenShortcodes.add(shortcode);
-
-            const imgRegex = new RegExp(
-              `href="\\/p\\/${shortcode}\\/"[\\s\\S]*?<img[^>]+src="([^"]+)"[\\s\\S]*?alt="([^"]*)"`,
-              'i'
-            );
-            const imgMatch = html.match(imgRegex);
-
-            const imageUrl = imgMatch ? imgMatch[1] : '';
-            const caption = imgMatch ? imgMatch[2] : `Vacante compartida por @${username}`;
-
-            posts.push({
-              id: shortcode,
-              url: `https://www.instagram.com/p/${shortcode}/`,
-              caption,
-              imageUrl,
-              publishedAt: new Date(),
-            });
-
-            if (posts.length >= 12) break;
-          }
-        }
-      } catch (e) {}
-    }
 
     return posts;
   }
@@ -662,6 +697,31 @@ export class InstagramScraperService {
           });
         }
         continue;
+      }
+
+      // Si el post no tiene imagen o el caption vino recortado, recuperarlo con el extractor individual OpenGraph
+      if (!post.imageUrl || !post.caption || post.caption.length < 20) {
+        try {
+          const enriched = await this.fetchSingleInstagramPost(post.id, post.url);
+          if (enriched) {
+            if (enriched.caption && enriched.caption.length > (post.caption || '').length) {
+              post.caption = enriched.caption;
+            }
+            if (enriched.imageUrl && !post.imageUrl) {
+              post.imageUrl = enriched.imageUrl;
+            }
+            if (enriched.extractedData && !post.extractedData) {
+              post.extractedData = enriched.extractedData;
+            }
+          }
+        } catch (e) {}
+      }
+
+      // Si aún no se extrajeron los datos estructurados con IA, ejecutar el parser de vacantes
+      if (!post.extractedData && post.caption && post.caption.length > 20) {
+        try {
+          post.extractedData = await AIService.parseJobFromPost({ caption: post.caption, imageUrl: post.imageUrl });
+        } catch (e) {}
       }
 
       let initialStatus: 'PENDING' | 'DISCARDED' = 'PENDING';
