@@ -23,6 +23,7 @@ import {
   PowerOff,
   AlertTriangle,
   Bot,
+  Edit3,
 } from 'lucide-react';
 
 export default function CompanyDashboardPage() {
@@ -422,6 +423,16 @@ export default function CompanyDashboardPage() {
                           Reactivar Vacante
                         </button>
                       )}
+
+                      {/* Botón Editar Vacante */}
+                      <Link
+                        href={`/dashboard/empresa/vacantes/${job.id}/editar`}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200"
+                        title="Editar información y detalles de la vacante"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                        Editar
+                      </Link>
 
                       {/* Botón ATS Pipeline */}
                       <Link

@@ -126,10 +126,12 @@ router.get('/company/mine', authenticate, requireRole(Role.COMPANY_OWNER, Role.C
 // 4. Detalle de empleo por Slug (Público con SEO)
 router.get('/:slug', async (req: Request, res: Response) => {
   try {
-    const slug = req.params.slug as string;
+    const identifier = req.params.slug as string;
 
-    const job = await prisma.job.findUnique({
-      where: { slug },
+    const job = await prisma.job.findFirst({
+      where: {
+        OR: [{ slug: identifier }, { id: identifier }],
+      },
       include: {
         company: true,
         skills: true,
@@ -248,7 +250,7 @@ router.post('/', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECR
   }
 });
 
-// 6. Actualizar vacante
+// 6. Actualizar vacante (Empresa y Admins)
 router.put('/:id', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECRUITER, Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
@@ -263,13 +265,75 @@ router.put('/:id', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RE
       return res.status(403).json({ error: 'No tienes permiso para editar esta vacante' });
     }
 
+    const {
+      title,
+      category,
+      description,
+      responsibilities,
+      requirements,
+      benefits,
+      jobType,
+      workplaceType,
+      experienceLevel,
+      salaryMin,
+      salaryMax,
+      salaryCurrency,
+      salaryPeriod,
+      isSalaryPublic,
+      applyMethod,
+      applyEmail,
+      province,
+      city,
+      skills,
+      featured,
+      urgent,
+      status,
+    } = req.body;
+
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title;
+    if (category !== undefined) updateData.category = category;
+    if (description !== undefined) updateData.description = description;
+    if (responsibilities !== undefined) updateData.responsibilities = responsibilities;
+    if (requirements !== undefined) updateData.requirements = requirements;
+    if (benefits !== undefined) updateData.benefits = benefits;
+    if (jobType !== undefined) updateData.jobType = jobType;
+    if (workplaceType !== undefined) updateData.workplaceType = workplaceType;
+    if (experienceLevel !== undefined) updateData.experienceLevel = experienceLevel;
+    if (salaryMin !== undefined) updateData.salaryMin = salaryMin !== null && salaryMin !== '' ? Number(salaryMin) : null;
+    if (salaryMax !== undefined) updateData.salaryMax = salaryMax !== null && salaryMax !== '' ? Number(salaryMax) : null;
+    if (salaryCurrency !== undefined) updateData.salaryCurrency = salaryCurrency;
+    if (salaryPeriod !== undefined) updateData.salaryPeriod = salaryPeriod;
+    if (isSalaryPublic !== undefined) updateData.isSalaryPublic = Boolean(isSalaryPublic);
+    if (applyMethod !== undefined) updateData.applyMethod = applyMethod;
+    if (applyEmail !== undefined) updateData.applyEmail = applyMethod === 'EMAIL' ? applyEmail : null;
+    if (province !== undefined) updateData.province = province;
+    if (city !== undefined) updateData.city = city;
+    if (featured !== undefined) updateData.featured = Boolean(featured);
+    if (urgent !== undefined) updateData.urgent = Boolean(urgent);
+    if (status !== undefined) updateData.status = status;
+
+    if (Array.isArray(skills)) {
+      await prisma.jobSkill.deleteMany({ where: { jobId: id } });
+      if (skills.length > 0) {
+        await prisma.jobSkill.createMany({
+          data: skills.map((s: string) => ({ jobId: id, skillName: s })),
+        });
+      }
+    }
+
     const updated = await prisma.job.update({
       where: { id },
-      data: req.body,
+      data: updateData,
+      include: {
+        company: true,
+        skills: true,
+      },
     });
 
     return res.json({ message: 'Vacante actualizada con éxito', job: updated });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Error al actualizar vacante:', error);
     return res.status(500).json({ error: 'Error al actualizar vacante' });
   }
 });

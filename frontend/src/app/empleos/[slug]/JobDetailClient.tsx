@@ -29,6 +29,8 @@ import {
   UserCheck,
   X,
   LogIn,
+  Edit3,
+  Users,
 } from 'lucide-react';
 
 interface JobDetailClientProps {
@@ -315,6 +317,42 @@ export default function JobDetailClient({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        {/* Banner para la empresa autora o administrador */}
+        {user && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || (user.company?.id && user.company.id === jobData.companyId)) && (
+          <div className="mb-6 bg-slate-900 text-white rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg border border-slate-800">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-white flex items-center gap-2">
+                  Gestión de esta vacante
+                  <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    Autor
+                  </span>
+                </p>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  Estado: <strong className={isAvailable ? 'text-emerald-400' : 'text-amber-400'}>{isAvailable ? '🟢 Disponible' : '⚪ No disponible (Cerrada)'}</strong> • {jobData.viewsCount || 0} visitas • {jobData.applicationsCount || 0} postulaciones
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Link
+                href={`/dashboard/empresa/vacantes/${jobData.id}/editar`}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-xs"
+              >
+                <Edit3 className="w-3.5 h-3.5" /> Editar Vacante
+              </Link>
+              <Link
+                href={`/dashboard/empresa/vacantes/${jobData.id}/ats`}
+                className="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5"
+              >
+                <Users className="w-3.5 h-3.5" /> Postulantes
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Banner destacado si la vacante ya no está disponible */}
         {!isAvailable && (
           <div className="mb-6 bg-amber-50 border border-amber-300/80 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 shadow-xs">
