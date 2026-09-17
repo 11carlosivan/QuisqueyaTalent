@@ -289,8 +289,19 @@ export class AIQueueService {
       prisma.aiJobQueue.count({ where: { status: 'DISCARDED' } }),
     ]);
 
+    const processedItems = items.map((item) => {
+      let safeImageUrl = item.imageUrl;
+      if (safeImageUrl && (safeImageUrl.includes('fbcdn.net') || safeImageUrl.includes('cdninstagram.com'))) {
+        safeImageUrl = `/api/ai/publisher/proxy-image?url=${encodeURIComponent(safeImageUrl)}`;
+      }
+      return {
+        ...item,
+        imageUrl: safeImageUrl,
+      };
+    });
+
     return {
-      items,
+      items: processedItems,
       pagination: {
         total,
         page,
