@@ -678,7 +678,6 @@ export class AIQueueService {
               requirements: jobData.requirements,
               responsibilities: jobData.responsibilities,
               benefits: jobData.benefits,
-              skills: jobData.skills || [],
               province: jobData.province,
               city: jobData.city || undefined,
               jobType: jobData.jobType,
@@ -692,6 +691,19 @@ export class AIQueueService {
               isSalaryPublic: jobData.isSalaryPublic ?? false,
             },
           });
+
+          // Actualizar skills: borrar las viejas y crear las nuevas
+          if (jobData.skills && jobData.skills.length > 0) {
+            await prisma.jobSkill.deleteMany({ where: { jobId: item.jobId } });
+            await prisma.jobSkill.createMany({
+              data: jobData.skills.map((skill: string) => ({
+                jobId: item.jobId as string,
+                skillName: skill,
+              })),
+              skipDuplicates: true,
+            });
+          }
+
 
           console.log(`✅ Job ${item.jobId} actualizado con título: "${jobData.title}" (re-extraído desde imagen)`);
         }
