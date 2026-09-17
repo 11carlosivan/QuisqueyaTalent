@@ -134,24 +134,24 @@ router.patch('/publisher/settings', authenticate, requireRole(Role.ADMIN, Role.S
   }
 });
 
-// 7. Escanear perfil de Instagram (aplica filtro de 1 mes y deduplicación)
+// 7. Escanear portal web de empleos, enlace individual o perfil de Instagram
 router.post('/publisher/scan-profile', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
-    const { profileUrl } = req.body;
-    if (!profileUrl) {
-      return res.status(400).json({ error: 'Debes proporcionar la URL o @usuario del perfil de Instagram' });
+    const targetUrl = req.body.profileUrl || req.body.url;
+    if (!targetUrl) {
+      return res.status(400).json({ error: 'Debes proporcionar la URL de la página web de empleos, vacante o @usuario' });
     }
 
     const settings = await AIQueueService.getSettings();
-    const result = await InstagramScraperService.scanAndEnqueue(profileUrl, settings.maxDaysOld || 30);
+    const result = await InstagramScraperService.scanAndEnqueue(targetUrl, settings.maxDaysOld || 30);
 
     return res.json({
-      message: `Escaneo completado para @${result.username}`,
+      message: result.message || `Escaneo completado para ${result.username}`,
       result,
     });
   } catch (error: any) {
-    console.error('Error escaneando perfil de Instagram:', error);
-    return res.status(500).json({ error: error.message || 'Error al escanear perfil de Instagram' });
+    console.error('Error escaneando página web o perfil:', error);
+    return res.status(500).json({ error: error.message || 'Error al procesar la página web o perfil' });
   }
 });
 

@@ -24,6 +24,8 @@ import {
   Mail,
   DollarSign,
   Filter,
+  Globe,
+  Link as LinkIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -162,11 +164,11 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
     }
   };
 
-  // Escanear perfil de Instagram
+  // Escanear enlace web de portal de empleos o perfil de Instagram
   const handleScanProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileInput.trim()) {
-      toast.warning('Ingresa el enlace o @nombre del perfil de Instagram', 'Campo requerido');
+      toast.warning('Ingresa el enlace web de la página de empleos o perfil', 'Campo requerido');
       return;
     }
 
@@ -183,21 +185,31 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
       const data = await res.json();
 
       if (res.ok) {
-        if (data.result.newEnqueued === 0) {
+        if (data.result.newEnqueued > 0) {
+          toast.success(
+            data.message || `¡${data.result.newEnqueued} vacantes nuevas detectadas y encoladas!`,
+            'Escaneo Exitoso'
+          );
+        } else if (data.result.skippedDuplicates > 0) {
           toast.info(
-            `Instagram no devolvió publicaciones públicas para @${data.result.username} (bloqueo anti-bot de Meta). Arrastra las capturas de pantalla en la zona superior para redactarlas con IA al instante.`,
+            `Las ${data.result.skippedDuplicates} vacantes detectadas en ${data.result.username} ya estaban registradas en la cola. Se omitieron duplicados.`,
+            'Vacantes ya en cola'
+          );
+        } else if (data.result.sourceType === 'INSTAGRAM_PROFILE') {
+          toast.info(
+            `Meta/Instagram bloqueó el acceso público automatizado al perfil @${data.result.username}. Puedes pegar el enlace directo a la página web del empleo o subir capturas/screenshots en la zona superior.`,
             'Aviso de Instagram'
           );
         } else {
-          toast.success(
-            `Perfil @${data.result.username} analizado: ${data.result.newEnqueued} vacantes nuevas encoladas (< 30 días). ${data.result.skippedDuplicates} repetidas omitidas.`,
-            'Escaneo Completado'
+          toast.warning(
+            data.message || 'No se detectaron publicaciones de empleo en la página indicada. Asegúrate de que el enlace contenga vacantes.',
+            'Sin vacantes detectadas'
           );
         }
         setProfileInput('');
         await fetchData();
       } else {
-        toast.error(data.error || 'No se pudo escanear el perfil de Instagram', 'Error de Escaneo');
+        toast.error(data.error || 'No se pudo escanear la página o perfil', 'Error de Escaneo');
       }
     } catch (e) {
       toast.error('Error de comunicación con el servidor al escanear', 'Error de Conexión');
@@ -632,25 +644,25 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
           )}
         </div>
 
-        {/* Zona 2: Escaneo Web de Perfiles de Instagram */}
+        {/* Zona 2: Escaneo Web Universal (Páginas Web de Empleo, Portales o Instagram) */}
         <div className="pt-4 border-t border-slate-100 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-              <InstagramIcon className="w-4 h-4 text-pink-600" /> O intenta escanear enlace de perfil directamente:
+              <Globe className="w-4 h-4 text-blue-600" /> Escanear Página Web de Empleos o Redes Sociales:
             </span>
-            <span className="text-[11px] text-slate-400">Filtro automático de &lt; 30 días</span>
+            <span className="text-[11px] text-slate-400">Portales web (Tu Empleo RD, Aldaba, etc.) o Instagram</span>
           </div>
 
           <form onSubmit={handleScanProfile} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <InstagramIcon className="w-4 h-4" />
+                <LinkIcon className="w-4 h-4" />
               </div>
               <input
                 type="text"
                 value={profileInput}
                 onChange={(e) => setProfileInput(e.target.value)}
-                placeholder="https://www.instagram.com/perfil_de_empleos/ o @perfil_de_empleos"
+                placeholder="Pega el enlace web (ej. https://tuempleord.do/... o cualquier portal/vacante) o @perfil"
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
               />
             </div>
@@ -662,43 +674,50 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
             >
               {scanning ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Escaneando Perfil...
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Analizando Página...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" /> Escanear Perfil
+                  <Sparkles className="w-4 h-4" /> Escanear Página / Perfil
                 </>
               )}
             </button>
           </form>
         </div>
 
-        {/* Perfiles Monitoreados */}
+        {/* Fuentes y Portales Monitoreados */}
         {sources.length > 0 && (
           <div className="pt-2 border-t border-slate-100">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-              Perfiles Registrados ({sources.length})
+              Fuentes y Portales Registrados ({sources.length})
             </span>
             <div className="flex flex-wrap gap-2">
-              {sources.map((s) => (
-                <div
-                  key={s.id}
-                  className="bg-slate-100 hover:bg-slate-200 border border-slate-200/80 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-medium text-slate-700"
-                >
-                  <InstagramIcon className="w-3.5 h-3.5 text-pink-600" />
-                  <span className="font-bold">@{s.username}</span>
-                  <span className="text-[10px] text-slate-400">({s._count?.queueItems || 0} vacantes en cola)</span>
-                  <a
-                    href={s.profileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-slate-400 hover:text-blue-600"
-                    title="Ver en Instagram"
+              {sources.map((s) => {
+                const isWeb = s.username.includes('.') || !s.profileUrl.includes('instagram.com');
+                return (
+                  <div
+                    key={s.id}
+                    className="bg-slate-100 hover:bg-slate-200 border border-slate-200/80 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-medium text-slate-700"
                   >
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              ))}
+                    {isWeb ? (
+                      <Globe className="w-3.5 h-3.5 text-blue-600" />
+                    ) : (
+                      <InstagramIcon className="w-3.5 h-3.5 text-pink-600" />
+                    )}
+                    <span className="font-bold">{isWeb ? s.username : `@${s.username}`}</span>
+                    <span className="text-[10px] text-slate-400">({s._count?.queueItems || 0} vacantes en cola)</span>
+                    <a
+                      href={s.profileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-slate-400 hover:text-blue-600"
+                      title="Abrir enlace"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

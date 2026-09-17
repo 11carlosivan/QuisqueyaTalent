@@ -179,16 +179,24 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (
     // 2. Patrones Positivos Fuertes (indicadores inequívocos de contratación)
     const strongJobKeywords = [
       'estamos contratando',
+      'contratando',
       'vacante disponible',
       'vacantes disponibles',
+      'vacante:',
+      'vacantes:',
       'nueva vacante',
       'se busca',
       'estamos buscando',
+      'buscamos',
       'solicitamos',
+      'requerimos',
+      'necesitamos',
       'oportunidad de empleo',
       'oportunidad laboral',
       'envía tu cv',
       'enviar cv',
+      'envianos tu cv',
+      'mandar cv',
       'aplica ya',
       'postúlate',
       'postulate',
@@ -197,20 +205,32 @@ Debes responder ÚNICAMENTE un objeto JSON válido con la siguiente estructura (
       'requisitos:',
       'funciones:',
       'responsabilidades:',
+      'beneficios:',
+      'interesados enviar',
+      'interesados postularse',
+      'interesados aplicar',
+      'sueldo:',
+      'salario:',
+      'jornada laboral',
       'we are hiring',
       'now hiring',
       'job opening',
+      'jobposting',
     ];
 
     const hasStrongIndicator = strongJobKeywords.some((k) => lower.includes(k));
 
     // Si tiene un correo explícito y además alguna palabra clave de empleo
     const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(text);
-    const hasAnyJobWord = ['vacante', 'empleo', 'puesto', 'salario', 'contratación', 'personal'].some((w) =>
+    const hasAnyJobWord = ['vacante', 'empleo', 'puesto', 'salario', 'contratación', 'personal', 'posición', 'posicion'].some((w) =>
       lower.includes(w)
     );
 
-    if (hasStrongIndicator || (hasEmail && hasAnyJobWord)) {
+    // Si contiene términos de empleo junto con requisitos/funciones/experiencia
+    const hasJobTerm = ['vacante', 'empleo', 'puesto', 'posición', 'posicion', 'cargo'].some((w) => lower.includes(w));
+    const hasDetailTerm = ['requisito', 'funcion', 'función', 'responsabilidad', 'beneficio', 'experiencia', 'aplicar', 'postul', 'licenciatura', 'estudiante', 'bachiller'].some((w) => lower.includes(w));
+
+    if (hasStrongIndicator || (hasEmail && hasAnyJobWord) || (hasJobTerm && hasDetailTerm)) {
       return { isJob: true, reason: 'Oferta de empleo detectada por patrones de contratación' };
     }
 
