@@ -40,12 +40,29 @@ export class InstagramScraperService {
       .replace(/<\/li>/gi, '\n')
       .replace(/<\/h[1-6]>/gi, '\n\n')
       .replace(/<[^>]+>/g, ' ')
+      .replace(/&iexcl;/gi, '¡')
+      .replace(/&iquest;/gi, '¿')
+      .replace(/&aacute;/gi, 'á')
+      .replace(/&eacute;/gi, 'é')
+      .replace(/&iacute;/gi, 'í')
+      .replace(/&oacute;/gi, 'ó')
+      .replace(/&uacute;/gi, 'ú')
+      .replace(/&ntilde;/gi, 'ñ')
+      .replace(/&Aacute;/gi, 'Á')
+      .replace(/&Eacute;/gi, 'É')
+      .replace(/&Iacute;/gi, 'Í')
+      .replace(/&Oacute;/gi, 'Ó')
+      .replace(/&Uacute;/gi, 'Ú')
+      .replace(/&Ntilde;/gi, 'Ñ')
+      .replace(/&zwj;/gi, '')
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#039;/g, "'")
+      .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+      .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(parseInt(code, 10)))
       .replace(/\s{2,}/g, ' ')
       .replace(/\n\s*\n\s*\n/g, '\n\n')
       .trim();
@@ -528,6 +545,62 @@ export class InstagramScraperService {
         if (parsed.length > 0) return parsed;
       }
     } catch (e) {}
+
+    // Estrategia 5: Gateways de feed público de Instagram (RSS-Bridge JSON Feed)
+    const bridgeUrls = [
+      `https://rss-bridge.org/bridge01/?action=display&bridge=Instagram&context=Username&u=${cleanUser}&format=Json`,
+      `https://feed.eugenemolotov.ru/?action=display&bridge=Instagram&context=Username&u=${cleanUser}&format=Json`,
+    ];
+
+    for (const bUrl of bridgeUrls) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 9000);
+
+        const res = await fetch(bUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Accept: 'application/json',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const data: any = await res.json();
+          const items = data.items || [];
+          for (const item of items) {
+            const shortcodeMatch = (item.url || item.id || '').match(/\/(?:p|reel)\/([a-zA-Z0-9_-]+)/);
+            const shortcode = shortcodeMatch ? shortcodeMatch[1] : '';
+            if (!shortcode) continue;
+
+            const rawCaption = item.content_html || item.title || '';
+            const cleanCaption = this.cleanHtmlToText(rawCaption);
+            const imageUrl =
+              item.image || item.attachments?.[0]?.url || `https://www.instagram.com/p/${shortcode}/media?size=l`;
+            const publishedAt = item.date_published ? new Date(item.date_published) : new Date();
+
+            posts.push({
+              id: shortcode,
+              url: item.url || `https://www.instagram.com/p/${shortcode}/`,
+              caption: cleanCaption,
+              imageUrl,
+              publishedAt: isNaN(publishedAt.getTime()) ? new Date() : publishedAt,
+            });
+          }
+
+          if (posts.length > 0) {
+            console.log(
+              `✨ [Instagram Scraper] ¡Éxito! ${posts.length} publicaciones extraídas del perfil @${cleanUser}`
+            );
+            return posts;
+          }
+        }
+      } catch (e: any) {
+        console.warn(`[Instagram Scraper] Bridge fallo para @${cleanUser}:`, e?.message);
+      }
+    }
 
     return posts;
   }
