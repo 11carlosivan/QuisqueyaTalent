@@ -83,6 +83,7 @@ export class AIPublisherWorker {
     newJobsEnqueued: number;
     skippedDuplicates: number;
     errors: number;
+    blockedByInstagram?: number;
     message?: string;
   }> {
     if (this.isScanningSources) {
@@ -92,6 +93,7 @@ export class AIPublisherWorker {
         newJobsEnqueued: 0,
         skippedDuplicates: 0,
         errors: 0,
+        blockedByInstagram: 0,
         message: 'Ya hay un escaneo en curso',
       };
     }
@@ -101,6 +103,7 @@ export class AIPublisherWorker {
     let skippedDuplicatesTotal = 0;
     let errorCount = 0;
     let scannedCount = 0;
+    let blockedByInstagramCount = 0;
 
     try {
       // 1. Verificar si el sistema está activo globalmente (si no es forzado manualmente)
@@ -112,6 +115,7 @@ export class AIPublisherWorker {
           newJobsEnqueued: 0,
           skippedDuplicates: 0,
           errors: 0,
+          blockedByInstagram: 0,
           message: 'Publicador IA pausado',
         };
       }
@@ -129,13 +133,14 @@ export class AIPublisherWorker {
           newJobsEnqueued: 0,
           skippedDuplicates: 0,
           errors: 0,
+          blockedByInstagram: 0,
           message: 'No hay cuentas registradas para escanear',
         };
       }
 
       console.log(`🤖 [AIPublisherWorker] Iniciando escaneo de ${sources.length} perfiles (forzado: ${force})...`);
       const sessionId = AIQueueService.getRawSessionId();
-      const maxDaysOld = settings.maxDaysOld || 7;
+      const maxDaysOld = settings.maxDaysOld || 30;
 
       for (const source of sources) {
         try {
@@ -146,6 +151,10 @@ export class AIPublisherWorker {
           scannedCount++;
           totalNew += result.newEnqueued;
           skippedDuplicatesTotal += result.skippedDuplicates;
+
+          if (result.sourceType === 'INSTAGRAM_PROFILE' && result.totalFound === 0 && !sessionId) {
+            blockedByInstagramCount++;
+          }
 
           console.log(
             `✨ [AIPublisherWorker] @${source.username}: ${result.newEnqueued} nuevas vacantes (${result.skippedDuplicates} ya existían).`
@@ -182,6 +191,7 @@ export class AIPublisherWorker {
       newJobsEnqueued: totalNew,
       skippedDuplicates: skippedDuplicatesTotal,
       errors: errorCount,
+      blockedByInstagram: blockedByInstagramCount,
     };
   }
 

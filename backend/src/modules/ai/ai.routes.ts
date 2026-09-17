@@ -118,15 +118,16 @@ router.get('/publisher/settings', authenticate, requireRole(Role.ADMIN, Role.SUP
   }
 });
 
-// 6. Actualizar configuración (Pausar/Reanudar, Vacantes por hora, Modo Borrador/Automático)
+// 6. Actualizar configuración (Pausar/Reanudar, Vacantes por hora, Modo Borrador/Automático, Cookie de Instagram)
 router.patch('/publisher/settings', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
-    const { isActive, jobsPerHour, publishMode, maxDaysOld } = req.body;
+    const { isActive, jobsPerHour, publishMode, maxDaysOld, instagramSessionId } = req.body;
     const updated = await AIQueueService.updateSettings({
       isActive,
       jobsPerHour,
       publishMode,
       maxDaysOld,
+      instagramSessionId,
     });
     return res.json({ message: 'Configuración actualizada exitosamente', settings: updated });
   } catch (error: any) {
@@ -139,7 +140,7 @@ router.patch('/publisher/settings', authenticate, requireRole(Role.ADMIN, Role.S
 router.post('/publisher/scan-profile', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
     const targetUrl = req.body.profileUrl || req.body.url;
-    const instagramSessionId = req.body.instagramSessionId || process.env.INSTAGRAM_SESSION_ID;
+    const instagramSessionId = req.body.instagramSessionId || AIQueueService.getRawSessionId() || process.env.INSTAGRAM_SESSION_ID;
     if (!targetUrl) {
       return res.status(400).json({ error: 'Debes proporcionar la URL de la página web de empleos, vacante o @usuario' });
     }
@@ -181,9 +182,9 @@ router.post('/publisher/sources', authenticate, requireRole(Role.ADMIN, Role.SUP
     }
 
     const settings = await AIQueueService.getSettings();
-    const sessionId = AIQueueService.getRawSessionId();
+    const sessionId = (req.body.instagramSessionId || AIQueueService.getRawSessionId() || '').trim();
 
-    const result = await InstagramScraperService.scanAndEnqueue(targetUrl, settings.maxDaysOld || 7, sessionId);
+    const result = await InstagramScraperService.scanAndEnqueue(targetUrl, settings.maxDaysOld || 30, sessionId);
 
     return res.json({
       message: `Perfil @${result.username} registrado exitosamente para monitoreo diario autónomo`,
@@ -219,10 +220,15 @@ router.patch('/publisher/sources/:id/toggle', authenticate, requireRole(Role.ADM
 });
 
 // 8.3 Disparar escaneo de todas las cuentas registradas de inmediato
-router.post('/publisher/scan-all-sources', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (_req: Request, res: Response) => {
+router.post('/publisher/scan-all-sources', authenticate, requireRole(Role.ADMIN, Role.SUPER_ADMIN), async (req: Request, res: Response) => {
   try {
     if (AIPublisherWorker.isScanning()) {
       return res.status(409).json({ error: 'Ya hay un escaneo de cuentas en curso. Por favor espera unos segundos.' });
+    }
+
+    const customSession = req.body?.instagramSessionId;
+    if (customSession && typeof customSession === 'string' && customSession.trim().length > 5) {
+      await AIQueueService.updateSettings({ instagramSessionId: customSession.trim() });
     }
 
     // Ejecutar el escaneo de forma síncrona para entregar resultados inmediatos en pantalla
@@ -233,6 +239,8 @@ router.post('/publisher/scan-all-sources', authenticate, requireRole(Role.ADMIN,
       message = result.message || 'No tienes cuentas registradas aún. Agrega un perfil en el campo superior para comenzar.';
     } else if (result.newJobsEnqueued > 0) {
       message = `¡Éxito! ${result.newJobsEnqueued} nuevas vacantes detectadas y encoladas (${result.skippedDuplicates} ya estaban registradas).`;
+    } else if (result.blockedByInstagram && result.blockedByInstagram > 0) {
+      message = `Instagram bloqueó la lectura porque no se ha guardado la cookie 'sessionid' en el servidor. Configúrala en la sección de autenticación de Instagram para activar el monitoreo automático.`;
     } else {
       message = `Escaneo completado en ${result.scanned} cuentas. No se detectaron vacantes nuevas (${result.skippedDuplicates} publicaciones ya existían).`;
     }

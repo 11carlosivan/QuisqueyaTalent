@@ -253,7 +253,13 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
       setScanningAll(true);
       const res = await fetch(`${API_URL}/api/ai/publisher/scan-all-sources`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          instagramSessionId: instagramSessionId.trim() || undefined,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -267,6 +273,12 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
             data.message || 'No hay cuentas registradas aún. Agrega un perfil arriba para comenzar.',
             'Sin Cuentas'
           );
+        } else if (data.result?.blockedByInstagram > 0 && !settings?.hasInstagramSession) {
+          toast.warning(
+            data.message || 'Instagram bloqueó la lectura de las cuentas (error 429). Configura la cookie sessionid en la sección de autenticación para que el servidor pueda leer las publicaciones.',
+            'Autenticación Requerida'
+          );
+          setShowSessionConfig(true);
         } else {
           toast.info(
             data.message || 'Escaneo completado. No se detectaron vacantes nuevas en este momento.',
@@ -791,6 +803,51 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
           </div>
         </div>
 
+        {/* Alerta si falta configurar la sesión de Instagram en el servidor */}
+        {!settings?.hasInstagramSession ? (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-700">
+                <AlertCircle className="w-4 h-4" />
+              </div>
+              <div className="space-y-0.5">
+                <h5 className="text-xs font-black text-amber-900">
+                  ¿Tus cuentas muestran 0 vacantes? Falta conectar la sesión de Instagram
+                </h5>
+                <p className="text-[11px] text-amber-700 leading-relaxed max-w-2xl">
+                  Instagram bloquea el acceso público a perfiles sin sesión (error 429), provocando que las cuentas arrojen 0 posts. Guarda tu cookie <code>sessionid</code> una sola vez en el servidor para que el motor extraiga las publicaciones diarias automáticamente.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowSessionConfig(true);
+                const el = document.getElementById('instagram-session-config');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-black px-4 py-2 rounded-xl transition shadow-xs cursor-pointer shrink-0"
+            >
+              Configurar Cookie (sessionid)
+            </button>
+          </div>
+        ) : (
+          <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-emerald-800 font-bold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Sesión de Instagram autenticada en el servidor: El motor puede escanear publicaciones 24/7 sin bloqueos.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSessionConfig(!showSessionConfig)}
+              className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer shrink-0"
+            >
+              Gestionar
+            </button>
+          </div>
+        )}
+
         {/* Formulario: Registrar nuevo perfil de Instagram o portal para monitoreo diario */}
         <div className="space-y-2">
           <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -961,7 +1018,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
         </div>
 
         {/* Configuración de Sesión de Instagram (sessionid) para evitar bloqueos 24/7 */}
-        <div className="pt-4 border-t border-slate-100">
+        <div id="instagram-session-config" className="pt-4 border-t border-slate-100">
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
