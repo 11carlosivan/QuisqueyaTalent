@@ -1638,7 +1638,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                     {/* Contenido / Datos Extraídos */}
                     <div className="flex gap-3 items-start">
                       {item.imageUrl ? (
-                        <div className="w-16 h-16 rounded-xl bg-slate-100 shrink-0 overflow-hidden border border-slate-200">
+                        <div className="w-16 h-16 rounded-xl bg-slate-100 shrink-0 overflow-hidden border border-slate-200 relative group">
                           <img
                             src={getSafeImageUrl(item.imageUrl)}
                             alt="Post Instagram"
@@ -1647,6 +1647,11 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                               e.target.style.display = 'none';
                             }}
                           />
+                          {item.imageUrl.includes(',') && (
+                            <span className="absolute bottom-1 right-1 bg-black/75 backdrop-blur-xs text-white text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-xs flex items-center gap-0.5">
+                              📸 {item.imageUrl.split(',').filter(Boolean).length}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <div className="w-16 h-16 rounded-xl bg-blue-50 border border-blue-200/80 shrink-0 flex items-center justify-center p-2">
@@ -1806,26 +1811,44 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                 </div>
               </div>
 
-              {/* Vista previa del afiche/imagen de Instagram */}
-              {editingItem.imageUrl && (
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-xl bg-white border border-slate-300 overflow-hidden shrink-0">
-                    <img
-                      src={getSafeImageUrl(editingItem.imageUrl)}
-                      alt="Afiche"
-                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition"
-                      onClick={() => window.open(getSafeImageUrl(editingItem.imageUrl), '_blank')}
-                      title="Clic para ver imagen en tamaño completo"
-                    />
-                  </div>
-                  <div className="space-y-0.5 text-xs">
-                    <span className="font-bold text-slate-900 block">Afiche de la Vacante (Fuente Principal)</span>
+              {/* Vista previa del afiche/imágenes del post (carrusel de múltiples fotos) */}
+              {editingItem.imageUrl && (() => {
+                const images = editingItem.imageUrl.split(',').map((u: string) => u.trim()).filter(Boolean);
+                return (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                        Afiches de la Vacante {images.length > 1 ? `(${images.length} fotos en carrusel)` : '(Fuente Principal)'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">Clic en cualquier foto para ampliar</span>
+                    </div>
+                    <div className="flex gap-2.5 overflow-x-auto pb-1">
+                      {images.map((imgUrl: string, idx: number) => (
+                        <div
+                          key={idx}
+                          className="w-18 h-18 rounded-xl bg-white border border-slate-300 overflow-hidden shrink-0 relative group shadow-2xs"
+                        >
+                          <img
+                            src={getSafeImageUrl(imgUrl)}
+                            alt={`Diapositiva ${idx + 1}`}
+                            className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition"
+                            onClick={() => window.open(getSafeImageUrl(imgUrl), '_blank')}
+                            title={`Clic para ver foto ${idx + 1} en tamaño completo`}
+                          />
+                          {images.length > 1 && (
+                            <span className="absolute bottom-1 right-1 bg-black/75 backdrop-blur-xs text-white text-[9px] font-black px-1.5 py-0.2 rounded-md">
+                              #{idx + 1}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                     <p className="text-[11px] text-slate-500">
-                      Los requisitos, horario, beneficios y forma de aplicar se extraen prioritariamente de este afiche.
+                      La IA consolida requisitos, horario, beneficios y forma de postulación leyendo todas las fotos del carrusel.
                     </p>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Texto original de Instagram */}
               {editingItem.captionText && (

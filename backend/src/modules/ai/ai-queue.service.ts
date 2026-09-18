@@ -650,6 +650,45 @@ export class AIQueueService {
       },
     });
 
+    // Si el post contenía múltiples imágenes y la IA detectó vacantes adicionales (carrusel)
+    if (jobData.additionalJobs && jobData.additionalJobs.length > 0) {
+      for (let idx = 0; idx < jobData.additionalJobs.length; idx++) {
+        const extraJob = jobData.additionalJobs[idx];
+        const extraPostId = `${item.instagramPostId || item.id}-pos-${idx + 2}`;
+        try {
+          const existingExtra = await prisma.aiJobQueue.findUnique({
+            where: { instagramPostId: extraPostId },
+          });
+          if (!existingExtra) {
+            await prisma.aiJobQueue.create({
+              data: {
+                sourceId: item.sourceId,
+                instagramPostId: extraPostId,
+                postUrl: item.postUrl,
+                postDate: item.postDate,
+                imageUrl: item.imageUrl,
+                captionText: `[Vacante ${idx + 2} del carrusel] ${item.captionText || ''}`,
+                isJobOffer: true,
+                status: 'PENDING',
+                extractedData: JSON.stringify(extraJob),
+              },
+            });
+            console.log(`✨ Creada vacante adicional del carrusel en cola: "${extraJob.title}" (${extraPostId})`);
+          } else {
+            await prisma.aiJobQueue.update({
+              where: { id: existingExtra.id },
+              data: {
+                extractedData: JSON.stringify(extraJob),
+                isJobOffer: true,
+              },
+            });
+          }
+        } catch (extraErr) {
+          console.error(`Error guardando vacante adicional ${extraPostId}:`, extraErr);
+        }
+      }
+    }
+
     // Si ya hay un Job publicado vinculado, actualizar también su título, descripción, etc.
     if (item.jobId && jobData.isJobOffer) {
       try {

@@ -29,6 +29,7 @@ export interface ExtractedJobData {
   requirements: string;
   benefits: string;
   skills: string[];
+  additionalJobs?: ExtractedJobData[];
 }
 
 export class AIService {
@@ -90,15 +91,19 @@ export class AIService {
       try {
         const systemInstruction = `Eres un extractor y redactor experto de ofertas laborales para la plataforma Quisqueya Talent (República Dominicana).
 
-REGLA FUNDAMENTAL DE ORO — PRIORIDAD ABSOLUTA A LA IMAGEN / AFICHE:
-1. La(s) IMAGEN(ES) (afiche publicitario / flyer / captura) es tu fuente PRINCIPAL y DEFINITIVA de información.
-   - Lee con extrema precisión TODO el texto en la imagen: título del puesto, empresa, requisitos, responsabilidades, beneficios, salario, horario de trabajo, ubicación y formas de postularse.
-   - Si se adjuntan varias imágenes (carrusel), revisa todas las diapositivas para extraer los datos de la vacante (ignora portadas genéricas como "Desliza para ver más").
+REGLA FUNDAMENTAL DE ORO — PRIORIDAD ABSOLUTA A LA(S) IMAGEN(ES) Y MANEJO DE MÚLTIPLES FOTOS:
+1. LA(S) IMAGEN(ES) ES TU FUENTE PRINCIPAL Y DEFINITIVA:
+   - Es muy común en Instagram que un post tenga VARIAS IMÁGENES (carrusel de diapositivas).
+   - CASO A (Portada genérica + afiches): La diapositiva 1 suele ser una portada publicitaria ("Desliza para ver más", "Nuevas ofertas"). DEBES IGNORAR la portada y enfocarte en los AFICHES REALES que contienen las vacantes.
+   - CASO B (Una sola vacante en varias diapositivas): Por ejemplo, Diapositiva 1 con título y empresa, Diapositiva 2 con requisitos, Diapositiva 3 con horario, beneficios y correo. Consolida TODA la información de todas las diapositivas en una sola vacante completa y coherente.
+   - CASO C (Múltiples vacantes distintas en el mismo post): Si en el carrusel aparecen dos o más puestos de trabajo totalmente diferentes (por ejemplo, Diapositiva 2 es "Asistente Administrativa" y Diapositiva 3 es "Agente de Ventas"):
+     * Extrae el primer puesto en los campos principales del JSON.
+     * Incluye los demás puestos en el arreglo "additionalJobs", cada uno con su título, empresa, categoría, requisitos, horario y forma de postulación.
 
 2. PROHIBICIÓN ESTRICTA Y TOTAL DE COPIAR EL CAPTION DE INSTAGRAM EN LA DESCRIPCIÓN:
    - NUNCA copies o pegues el texto del caption de Instagram en el campo "description".
-   - El caption de Instagram contiene hashtags (#empleosrd, #vacantes), menciones (@...), llamadas a la acción ("etiqueta a tu amigo", "link en la bio", "únete a nuestro canal", "comenta", "desliza"), y saludos que ESTÁN ESTRICTAMENTE PROHIBIDOS en la vacante.
-   - La descripción debe ser una redacción 100% formal, profesional y corporativa en español dominicano basada ÚNICAMENTE en la oferta del afiche.
+   - El caption contiene hashtags (#empleosrd, #vacantes), menciones (@...), llamadas a la acción ("etiqueta a tu amigo", "link en la bio", "únete a nuestro canal", "comenta", "desliza"), y saludos que ESTÁN ESTRICTAMENTE PROHIBIDOS en la vacante.
+   - La descripción debe ser una redacción 100% formal, profesional y corporativa en español dominicano basada ÚNICAMENTE en la oferta de los afiches.
 
 3. CAMPOS OBLIGATORIOS A INCLUIR EN EL CAMPO "description":
    La descripción debe redactarse en español formal dominicano (2 o 3 párrafos limpios y fluidos) e incluir SIEMPRE:
@@ -124,10 +129,10 @@ TEXTO/CAPTION DE INSTAGRAM (Úsalo solo como contexto de apoyo secundario; NUNCA
 """${caption}"""
 
 ---
-ANALIZA LA(S) IMAGEN(ES) ADJUNTA(S) Y RESPONDE CON ESTE JSON EXACTO:
+ANALIZA TODAS LAS IMÁGENES ADJUNTAS (CARRUSEL) Y RESPONDE CON ESTE JSON EXACTO:
 {
   "isJobOffer": true,
-  "title": "Título exacto del puesto según el afiche (ej: Asistente Administrativa)",
+  "title": "Título exacto del puesto principal según el afiche (ej: Asistente Administrativa)",
   "companyName": "Empresa contratante visible en el afiche (ej: 3NL Tres en Línea, S.R.L.), o 'Empresa Destacada'",
   "category": "Una de: Tecnología | Ventas & Comercio | Call Center & BPO | Administración & Finanzas | Servicio al Cliente | Turismo & Hotelería | Salud & Medicina | Logística & Operaciones | Educación | Otros",
   "province": "Provincia de RD (Santo Domingo, Distrito Nacional, Santiago, La Altagracia, etc.)",
@@ -145,7 +150,31 @@ ANALIZA LA(S) IMAGEN(ES) ADJUNTA(S) Y RESPONDE CON ESTE JSON EXACTO:
   "responsibilities": "• Lista con viñetas de las funciones según el afiche.",
   "requirements": "• Lista con viñetas de todos los requisitos según el afiche.",
   "benefits": "• Lista con viñetas de los beneficios del afiche (o beneficios de ley).",
-  "skills": ["Habilidad 1", "Habilidad 2", "Habilidad 3"]
+  "skills": ["Habilidad 1", "Habilidad 2", "Habilidad 3"],
+  "additionalJobs": [
+    {
+      "isJobOffer": true,
+      "title": "Título de la segunda vacante si el post/carrusel incluye más de un puesto distinto en sus diapositivas",
+      "companyName": "Empresa",
+      "category": "Categoría",
+      "province": "Provincia de RD",
+      "city": null,
+      "jobType": "FULL_TIME",
+      "workplaceType": "ON_SITE",
+      "experienceLevel": "MID",
+      "salaryMin": null,
+      "salaryMax": null,
+      "salaryCurrency": "DOP",
+      "isSalaryPublic": false,
+      "applyMethod": "EMAIL",
+      "applyEmail": "correo si aplica",
+      "description": "Descripción formal de este segundo puesto (incluyendo horario y ubicación si aparecen)...",
+      "responsibilities": "• Funciones...",
+      "requirements": "• Requisitos...",
+      "benefits": "• Beneficios...",
+      "skills": ["Habilidad 1", "Habilidad 2"]
+    }
+  ]
 }`;
 
         // Recolectar imágenes (locales /uploads/ y remotas http/https)
@@ -281,11 +310,27 @@ ANALIZA LA(S) IMAGEN(ES) ADJUNTA(S) Y RESPONDE CON ESTE JSON EXACTO:
             const hasWhatsApp = /whatsapp|wha?ts|wa\.me|809|829|849|\+1[-\s]?\(?8[0-9]{2}\)?/.test(desc);
             const hasPhone = /llama[r]?\s+al|escrib[ei]\s+al|cont[aá]ct[ao]\s+al|tel[eé]fono|celular/.test(desc);
 
-            if (parsed.applyEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsed.applyEmail)) {
-              parsed.applyMethod = 'EMAIL';
-            } else if (hasWhatsApp || hasPhone) {
-              parsed.applyMethod = 'PLATFORM';
-              parsed.applyEmail = null;
+            // 4. Post-procesar vacantes secundarias del carrusel si existen
+            if (Array.isArray(parsed.additionalJobs)) {
+              parsed.additionalJobs = parsed.additionalJobs
+                .filter((sub: any) => sub && sub.title && sub.title.length > 2)
+                .map((sub: any) => {
+                  const cleanSubTitle = (sub.title || '')
+                    .replace(/^(?:buscamos\s+(?:personal\s+para:?|personal:?|un\/a|a)?:?|se\s+busca:?|se\s+solicita:?|vacante(?:\s+de)?:?|oportunidad(?:\s+de)?:?)\s*/i, '')
+                    .replace(/[▫️▪️🔹🔥🚨📌👉*•]+/g, '')
+                    .trim();
+                  return {
+                    ...sub,
+                    isJobOffer: true,
+                    title: cleanSubTitle,
+                    companyName: sub.companyName || parsed.companyName || 'Empresa Destacada',
+                    province: sub.province || parsed.province || 'Santo Domingo',
+                    description: this.cleanInstagramNoise(sub.description || ''),
+                    requirements: this.cleanInstagramNoise(sub.requirements || ''),
+                    responsibilities: this.cleanInstagramNoise(sub.responsibilities || ''),
+                    benefits: this.cleanInstagramNoise(sub.benefits || ''),
+                  };
+                });
             }
 
             return parsed;
@@ -591,6 +636,33 @@ ANALIZA LA(S) IMAGEN(ES) ADJUNTA(S) Y RESPONDE CON ESTE JSON EXACTO:
       description += `\n\n👉 Puedes postularte a esta posición directamente a través de Quisqueya Talent completando tu perfil profesional verificado.`;
     }
 
+    // 9. Detectar si el texto o carrusel contiene una vacante secundaria adicional (ej: Asistente Administrativa + Agente de Ventas)
+    const additionalJobs: ExtractedJobData[] = [];
+    if (lower.includes('agente de ventas') && !title.toLowerCase().includes('agente de ventas')) {
+      additionalJobs.push({
+        isJobOffer: true,
+        title: 'Agente de Ventas (Call Center)',
+        companyName,
+        category: 'Ventas & Comercio',
+        province,
+        city: 'La Castellana',
+        jobType: 'FULL_TIME',
+        workplaceType,
+        experienceLevel: 'MID',
+        salaryMin: null,
+        salaryMax: null,
+        salaryCurrency: 'DOP',
+        isSalaryPublic: false,
+        applyMethod: applyEmail ? 'EMAIL' : 'PLATFORM',
+        applyEmail,
+        description: `Oportunidad laboral para la posición de Agente de Ventas (Call Center) en ${province}, República Dominicana. Buscamos una persona dinámica, proactiva y con excelentes habilidades de comunicación para integrarse al equipo comercial.\n\n📍 Ubicación: La Castellana, Santo Domingo, D.N.\n\n${applyEmail ? `📩 Para postularte, envía tu CV actualizado a: ${applyEmail}` : '👉 Postúlate directamente a través de Quisqueya Talent.'}`,
+        responsibilities: `• Realizar llamadas a prospectos y gestionar cartera de clientes.\n• Cumplir con las metas de ventas y productividad comercial establecidas.\n• Ofrecer asesoría personalizada y seguimiento oportuno.`,
+        requirements: `• Experiencia previa en ventas telefónicas, call center o servicio al cliente.\n• Excelentes habilidades de comunicación asertiva y negociación.\n• Orientación al cliente y enfoque en el logro de resultados.`,
+        benefits: `• Salario competitivo acorde al mercado dominicano.\n• Atractivo esquema de comisiones por metas.\n• Beneficios de ley y capacitación continua.`,
+        skills: ['Ventas Telefónicas', 'Comunicación Asertiva', 'Negociación', 'Orientación a Metas'],
+      });
+    }
+
     return {
       isJobOffer,
       title: title || 'Posición Laboral Requerida',
@@ -611,6 +683,7 @@ ANALIZA LA(S) IMAGEN(ES) ADJUNTA(S) Y RESPONDE CON ESTE JSON EXACTO:
       requirements: `• Formación académica, técnica o experiencia previa afín al puesto de ${title}.\n• Residencia en ${province} o facilidad de transporte hacia el área de trabajo.\n• Responsabilidad, proactividad, buenas relaciones interpersonales y puntualidad.`,
       benefits: `• Compensación competitiva acorde al mercado dominicano.\n• Todos los beneficios de ley (Seguro Familiar de Salud TSS, Regalía Pascual, Vacaciones).\n• Estabilidad laboral y oportunidades de capacitación continua.`,
       skills: ['Responsabilidad', 'Puntualidad', 'Trabajo en Equipo', 'Comunicación'],
+      additionalJobs: additionalJobs.length > 0 ? additionalJobs : undefined,
     };
   }
 

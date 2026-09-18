@@ -851,6 +851,38 @@ export class InstagramScraperService {
         newEnqueued++;
       }
       enqueuedItems.push(queueItem);
+
+      // Si el post contenía múltiples vacantes distintas (ej. carrusel con varios afiches de puestos)
+      if (post.extractedData?.additionalJobs && post.extractedData.additionalJobs.length > 0) {
+        for (let idx = 0; idx < post.extractedData.additionalJobs.length; idx++) {
+          const extraJob = post.extractedData.additionalJobs[idx];
+          const extraPostId = `${post.id}-pos-${idx + 2}`;
+          try {
+            const existingExtra = await prisma.aiJobQueue.findUnique({
+              where: { instagramPostId: extraPostId },
+            });
+            if (!existingExtra) {
+              const extraQueueItem = await prisma.aiJobQueue.create({
+                data: {
+                  sourceId: source.id,
+                  instagramPostId: extraPostId,
+                  postUrl: post.url,
+                  postDate: post.publishedAt,
+                  imageUrl: post.imageUrl || null,
+                  captionText: `[Vacante ${idx + 2} del carrusel] ${post.caption || ''}`,
+                  isJobOffer: true,
+                  status: 'PENDING',
+                  extractedData: JSON.stringify(extraJob),
+                },
+              });
+              newEnqueued++;
+              enqueuedItems.push(extraQueueItem);
+            }
+          } catch (extraErr) {
+            console.error(`Error encolando vacante adicional ${extraPostId}:`, extraErr);
+          }
+        }
+      }
     }
 
     let message = `Escaneo completado para ${username}`;
