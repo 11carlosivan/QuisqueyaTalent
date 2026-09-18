@@ -638,6 +638,7 @@ export class AIQueueService {
     const jobData = await AIService.parseJobFromPost({
       caption: item.captionText || '',
       imageUrl: item.imageUrl || undefined,
+      postUrl: item.postUrl || undefined,
     });
 
     // Actualizar el extractedData en la cola
@@ -652,8 +653,9 @@ export class AIQueueService {
     // Si ya hay un Job publicado vinculado, actualizar también su título, descripción, etc.
     if (item.jobId && jobData.isJobOffer) {
       try {
+        const officialCompany = await OfficialCompanyService.getOfficialCompany();
         const existingJob = await prisma.job.findUnique({ where: { id: item.jobId } });
-        if (existingJob) {
+        if (existingJob && officialCompany) {
           // Construir slug nuevo basado en el título extraído de la imagen
           const rawSlug = `${jobData.title}-${jobData.province || existingJob.province || 'rd'}`
             .toLowerCase()
@@ -672,6 +674,7 @@ export class AIQueueService {
           await prisma.job.update({
             where: { id: item.jobId },
             data: {
+              companyId: officialCompany.id,
               title: jobData.title,
               slug,
               description: fullDescription,
@@ -704,7 +707,6 @@ export class AIQueueService {
             });
           }
 
-
           console.log(`✅ Job ${item.jobId} actualizado con título: "${jobData.title}" (re-extraído desde imagen)`);
         }
       } catch (jobUpdateErr) {
@@ -718,9 +720,9 @@ export class AIQueueService {
     };
   }
 
-
   /**
    * Re-analiza en lote todos los elementos en cola para corregir falsos positivos y títulos erróneos
+   * Procesando en pequeños lotes concurrentes para evitar bloqueos y timeouts en producción
    */
   static async reExtractAllPending() {
     const pendingItems = await prisma.aiJobQueue.findMany({
@@ -731,15 +733,21 @@ export class AIQueueService {
     let updatedCount = 0;
     let errorCount = 0;
 
-    for (const item of pendingItems) {
-      try {
-        // Reutilizar el método único para mantener consistencia y actualizar Jobs publicados
-        await AIQueueService.reExtractQueueItem(item.id);
-        updatedCount++;
-      } catch (err) {
-        console.error(`Error re-analizando cola ${item.id}:`, err);
-        errorCount++;
-      }
+    // Procesar en lotes de 3 concurrentes
+    const batchSize = 3;
+    for (let i = 0; i < pendingItems.length; i += batchSize) {
+      const batch = pendingItems.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async (item) => {
+          try {
+            await AIQueueService.reExtractQueueItem(item.id);
+            updatedCount++;
+          } catch (err) {
+            console.error(`Error re-analizando cola ${item.id}:`, err);
+            errorCount++;
+          }
+        })
+      );
     }
 
     return {

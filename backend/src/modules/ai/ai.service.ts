@@ -1,3 +1,6 @@
+import path from 'path';
+import fs from 'fs';
+
 export interface AIJobPrompt {
   title: string;
   industry?: string;
@@ -34,59 +37,101 @@ export class AIService {
   }
 
   /**
-   * 1. Analiza una publicación de Instagram (caption y/o imagen) y extrae una vacante redactada profesionalmente
+   * Limpia impurezas y texto de redes sociales típico de Instagram
+   * (hashtags, menciones, enlaces en bio, canales de WhatsApp, llamadas a etiquetar amigos)
+   */
+  static cleanInstagramNoise(text: string): string {
+    if (!text) return '';
+    return text
+      // Eliminar hashtags (#empleosrd, #vacantes, etc.)
+      .replace(/#[\wáéíóúÁÉÍÓÚñÑ_]+/gi, '')
+      // Eliminar menciones (@usuario)
+      .replace(/@[\w._]+/gi, '')
+      // Eliminar URLs
+      .replace(/https?:\/\/[^\s]+/gi, '')
+      // Eliminar frases típicas de captación en redes sociales
+      .replace(/["']?etiqueta a (?:tu|un) amigo[^\n\r.]*["']?/gi, '')
+      .replace(/¿?quieres recibir las vacantes directamente[^\n\r.]*\??/gi, '')
+      .replace(/(?:únete|unete) a nuestro canal de whatsapp[^\n\r.]*/gi, '')
+      .replace(/(?:únete|unete) a nuestro grupo[^\n\r.]*/gi, '')
+      .replace(/link en (?:la )?bio[^\n\r.]*/gi, '')
+      .replace(/enlace en (?:el )?perfil[^\n\r.]*/gi, '')
+      .replace(/desliza para ver[^\n\r.]*/gi, '')
+      .replace(/desliza hacia la izquierda[^\n\r.]*/gi, '')
+      .replace(/s[íi]guenos para m[áa]s[^\n\r.]*/gi, '')
+      .replace(/comparte (?:este post|esta vacante|con alguien)[^\n\r.]*/gi, '')
+      .replace(/guarda este post[^\n\r.]*/gi, '')
+      .replace(/infovacantesrd\w*/gi, '')
+      .replace(/empleos_parati_rd/gi, '')
+      .replace(/empleosrd/gi, '')
+      // Normalizar saltos de línea
+      .replace(/\n\s*\n\s*\n+/g, '\n\n')
+      .trim();
+  }
+
+  /**
+   * 1. Analiza una publicación de Instagram (caption y/o imagen) y extrae una vacante redactada profesionalmente.
+   * La IMAGEN (flyer/afiche) es la prioridad estricta. El caption de Instagram NO debe copiarse en la descripción.
    */
   static async parseJobFromPost(input: {
     caption?: string;
     imageUrl?: string;
+    imageUrls?: string[];
     imageBuffer?: Buffer;
+    imageBuffers?: Buffer[];
     imageMime?: string;
+    postUrl?: string;
   }): Promise<ExtractedJobData> {
     const caption = input.caption || '';
     const key = this.apiKey;
 
-    // Si hay Gemini API Key configurada, llamar a Gemini 1.5 Flash
+    // Si hay Gemini API Key configurada, llamar a Gemini Multimodal
     if (key && key.trim().length > 10) {
       try {
-        // ─── Prompt de extracción con PRIORIDAD ESTRICTA a la imagen ───────────
-        // La imagen va PRIMERO en el array de parts para que Gemini la procese como
-        // fuente principal. El caption es solo referencia secundaria para completar
-        // campos que la imagen no aclara. NUNCA se deben pisar datos de la imagen
-        // con datos del caption (ej. si la imagen dice "WhatsApp: 809-xxx", se usa).
+        const systemInstruction = `Eres un extractor y redactor experto de ofertas laborales para la plataforma Quisqueya Talent (República Dominicana).
 
-        const systemInstruction = `Eres un extractor experto de vacantes de empleo para la plataforma Quisqueya Talent (República Dominicana).
+REGLA FUNDAMENTAL DE ORO — PRIORIDAD ABSOLUTA A LA IMAGEN / AFICHE:
+1. La(s) IMAGEN(ES) (afiche publicitario / flyer / captura) es tu fuente PRINCIPAL y DEFINITIVA de información.
+   - Lee con extrema precisión TODO el texto en la imagen: título del puesto, empresa, requisitos, responsabilidades, beneficios, salario, horario de trabajo, ubicación y formas de postularse.
+   - Si se adjuntan varias imágenes (carrusel), revisa todas las diapositivas para extraer los datos de la vacante (ignora portadas genéricas como "Desliza para ver más").
 
-REGLA FUNDAMENTAL — PRIORIDAD DE FUENTES:
-1. La IMAGEN (flyer/afiche) es tu fuente PRINCIPAL y DEFINITIVA.
-   - Lee TODO el texto visible en la imagen: título, empresa, requisitos, responsabilidades, salario, método de contacto (WhatsApp, teléfono, email, link).
-   - Si la imagen indica un número de WhatsApp o teléfono para aplicar, DEBES incluirlo literalmente en el campo "description" y ajustar "applyMethod" a "PLATFORM".
-   - NUNCA omitas información de contacto visible en la imagen.
-2. El texto/caption es solo REFERENCIA SECUNDARIA para complementar lo que la imagen NO aclara.
-   - Si la imagen tiene el título → usa ese título (ignora el del caption si difieren).
-   - Si la imagen tiene instrucciones de aplicación → úsalas (ignora las del caption si difieren).
-3. Si NO hay imagen o la imagen es ilegible, usa el caption como fuente.
+2. PROHIBICIÓN ESTRICTA Y TOTAL DE COPIAR EL CAPTION DE INSTAGRAM EN LA DESCRIPCIÓN:
+   - NUNCA copies o pegues el texto del caption de Instagram en el campo "description".
+   - El caption de Instagram contiene hashtags (#empleosrd, #vacantes), menciones (@...), llamadas a la acción ("etiqueta a tu amigo", "link en la bio", "únete a nuestro canal", "comenta", "desliza"), y saludos que ESTÁN ESTRICTAMENTE PROHIBIDOS en la vacante.
+   - La descripción debe ser una redacción 100% formal, profesional y corporativa en español dominicano basada ÚNICAMENTE en la oferta del afiche.
 
-INSTRUCCIONES DE REDACCIÓN:
-- Redacta en español formal dominicano, estilo corporativo y profesional.
-- La "description" debe ser atractiva para el candidato e incluir TODOS los detalles de contacto/aplicación que aparezcan en la imagen (WhatsApp, correo, enlace, etc.).
-- Si ves un número de WhatsApp, escríbelo explícitamente: "Para aplicar, escribe por WhatsApp al [número]".
-- Responde ÚNICAMENTE con JSON puro (sin markdown, sin bloques de código).`;
+3. CAMPOS OBLIGATORIOS A INCLUIR EN EL CAMPO "description":
+   La descripción debe redactarse en español formal dominicano (2 o 3 párrafos limpios y fluidos) e incluir SIEMPRE:
+   - Introducción profesional al puesto y a la empresa.
+   - ⏰ Horario de Trabajo: Si la imagen indica horario o días de trabajo (ej: "Lunes a viernes y feriados, de 8:50 a. m. a 6:00 p. m."), debes escribirlo en una línea dedicada:
+     "⏰ Horario: [horario visible en el afiche]".
+   - 📍 Ubicación / Sector: Si la imagen indica sector, ciudad o dirección (ej: "Santo Domingo, D.N." o "La Castellana"), agrégalo en una línea dedicada:
+     "📍 Ubicación: [ubicación visible en el afiche]".
+   - 📩 / 📲 / 🏢 Forma de Postularse Clara:
+     * Si la imagen tiene correo electrónico para enviar CV: "📩 Para postularte, envía tu CV a: [correo]".
+     * Si la imagen tiene WhatsApp: "📲 Para postularte, envía tu CV vía WhatsApp al: [número]". (¡Cuidado! No confundir con canales de difusión de Instagram).
+     * Si es aplicación presencial: "🏢 Entrevista o entrega de CV presencial en: [dirección]".
+
+4. TÍTULO LIMPIO:
+   - El campo "title" debe ser el nombre exacto del cargo (ej: "Asistente Administrativa" o "Agente de Ventas Call Center").
+   - NUNCA incluyas "Buscamos personal para:", "Se busca:", "Vacante de:", ni emojis en el título.
+- Responde ÚNICAMENTE con JSON puro sin markdown ni bloques de código.`;
 
         const prompt = `${systemInstruction}
 
 ---
-TEXTO/CAPTION (referencia secundaria):
+TEXTO/CAPTION DE INSTAGRAM (Úsalo solo como contexto de apoyo secundario; NUNCA lo copies literalmente en la descripción):
 """${caption}"""
 
 ---
-ANALIZA LA IMAGEN ADJUNTA y extrae la información de la vacante. Responde con este JSON exacto:
+ANALIZA LA(S) IMAGEN(ES) ADJUNTA(S) Y RESPONDE CON ESTE JSON EXACTO:
 {
   "isJobOffer": true,
-  "title": "Título exacto del puesto según la imagen",
-  "companyName": "Empresa mencionada en la imagen, o 'Empresa Confidencial'",
-  "category": "Una de: Tecnología | Ventas & Comercio | Call Center & BPO | Administración & Finanzas | Servicio al Cliente | Turismo & Hotelería | Salud & Medicina | Logística & Operaciones | Educación",
+  "title": "Título exacto del puesto según el afiche (ej: Asistente Administrativa)",
+  "companyName": "Empresa contratante visible en el afiche (ej: 3NL Tres en Línea, S.R.L.), o 'Empresa Destacada'",
+  "category": "Una de: Tecnología | Ventas & Comercio | Call Center & BPO | Administración & Finanzas | Servicio al Cliente | Turismo & Hotelería | Salud & Medicina | Logística & Operaciones | Educación | Otros",
   "province": "Provincia de RD (Santo Domingo, Distrito Nacional, Santiago, La Altagracia, etc.)",
-  "city": "Ciudad o sector visible en la imagen, o null",
+  "city": "Ciudad, sector o dirección según el afiche (ej: Distrito Nacional, La Castellana), o null",
   "jobType": "FULL_TIME",
   "workplaceType": "ON_SITE",
   "experienceLevel": "MID",
@@ -95,53 +140,101 @@ ANALIZA LA IMAGEN ADJUNTA y extrae la información de la vacante. Responde con e
   "salaryCurrency": "DOP",
   "isSalaryPublic": false,
   "applyMethod": "EMAIL",
-  "applyEmail": "email@ejemplo.com si aparece en la imagen, o null",
-  "description": "Descripción completa incluyendo TODOS los detalles de contacto y método de aplicación visibles en la imagen (WhatsApp, teléfono, link, correo, etc.).",
-  "responsibilities": "• Responsabilidades con viñetas según la imagen.",
-  "requirements": "• Requisitos con viñetas según la imagen.",
-  "benefits": "• Beneficios si se mencionan, o beneficios estándar de ley en RD.",
+  "applyEmail": "correo visible en el afiche para recibir CVs, o null",
+  "description": "Descripción formal profesional basada en el afiche. Incluye '⏰ Horario: ...' y '📍 Ubicación: ...' si aparecen en la imagen, y explica claramente el método de aplicación (correo, WhatsApp o presencial). PROHIBIDO copiar texto de Instagram.",
+  "responsibilities": "• Lista con viñetas de las funciones según el afiche.",
+  "requirements": "• Lista con viñetas de todos los requisitos según el afiche.",
+  "benefits": "• Lista con viñetas de los beneficios del afiche (o beneficios de ley).",
   "skills": ["Habilidad 1", "Habilidad 2", "Habilidad 3"]
 }`;
 
-        // Descargar la imagen si se pasó por URL para enviarla a Gemini Multimodal / OCR
-        let imgBuffer = input.imageBuffer;
-        let imgMime = input.imageMime;
+        // Recolectar imágenes (locales /uploads/ y remotas http/https)
+        const parts: any[] = [];
+        const candidateUrls: string[] = [];
 
-        if (!imgBuffer && input.imageUrl && input.imageUrl.startsWith('http')) {
-          try {
-            const imgRes = await fetch(input.imageUrl, {
-              headers: {
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-              },
-            });
-            if (imgRes.ok) {
-              const arrayBuf = await imgRes.arrayBuffer();
-              imgBuffer = Buffer.from(arrayBuf);
-              imgMime = imgRes.headers.get('content-type') || 'image/jpeg';
-            }
-          } catch (imgErr) {
-            console.warn('No se pudo descargar imagen para análisis multimodal:', imgErr);
+        if (input.imageUrls && Array.isArray(input.imageUrls)) {
+          candidateUrls.push(...input.imageUrls);
+        }
+        if (input.imageUrl) {
+          if (input.imageUrl.includes(',')) {
+            candidateUrls.push(...input.imageUrl.split(',').map((u) => u.trim()).filter(Boolean));
+          } else {
+            candidateUrls.push(input.imageUrl.trim());
           }
         }
 
-        // ⬇ IMAGEN PRIMERO para que Gemini la procese como fuente principal,
-        //   el texto del prompt va después como instrucción secundaria.
-        const parts: any[] = [];
-
-        if (imgBuffer && imgMime) {
-          // Imagen va al INICIO del array
+        // 1. Agregar buffers directos si los hay
+        if (input.imageBuffer) {
           parts.push({
             inlineData: {
-              mimeType: imgMime.split(';')[0].trim(),
-              data: imgBuffer.toString('base64'),
+              mimeType: (input.imageMime || 'image/jpeg').split(';')[0].trim(),
+              data: input.imageBuffer.toString('base64'),
             },
           });
         }
+        if (input.imageBuffers && Array.isArray(input.imageBuffers)) {
+          for (const buf of input.imageBuffers) {
+            parts.push({
+              inlineData: {
+                mimeType: (input.imageMime || 'image/jpeg').split(';')[0].trim(),
+                data: buf.toString('base64'),
+              },
+            });
+          }
+        }
 
-        // Texto del prompt siempre al final
+        // 2. Procesar URLs (locales de /uploads/ y remotas http)
+        for (const rawUrl of candidateUrls) {
+          if (!rawUrl) continue;
+
+          // Archivo local en /uploads/
+          if (rawUrl.startsWith('/uploads/') || rawUrl.startsWith('uploads/')) {
+            try {
+              const cleanRel = rawUrl.replace(/^\//, '');
+              const localPath = path.join(process.cwd(), cleanRel);
+              if (fs.existsSync(localPath)) {
+                const fileBuf = fs.readFileSync(localPath);
+                const ext = path.extname(localPath).toLowerCase().replace('.', '');
+                const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+                parts.push({
+                  inlineData: {
+                    mimeType: mime,
+                    data: fileBuf.toString('base64'),
+                  },
+                });
+              }
+            } catch (localErr) {
+              console.warn('[AIService] Error cargando imagen local:', localErr);
+            }
+          } else if (rawUrl.startsWith('http')) {
+            // Imagen remota
+            try {
+              const imgRes = await fetch(rawUrl, {
+                headers: {
+                  'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                  Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                },
+              });
+              if (imgRes.ok) {
+                const arrayBuf = await imgRes.arrayBuffer();
+                const fileBuf = Buffer.from(arrayBuf);
+                const mime = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+                parts.push({
+                  inlineData: {
+                    mimeType: mime,
+                    data: fileBuf.toString('base64'),
+                  },
+                });
+              }
+            } catch (imgErr) {
+              console.warn('[AIService] Error descargando imagen remota:', imgErr);
+            }
+          }
+        }
+
+        // El texto del prompt siempre va al final de las partes multimodales
         parts.push({ text: prompt });
-
 
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
@@ -151,7 +244,7 @@ ANALIZA LA IMAGEN ADJUNTA y extrae la información de la vacante. Responde con e
             body: JSON.stringify({
               contents: [{ parts }],
               generationConfig: {
-                temperature: 0.2,
+                temperature: 0.1,
                 responseMimeType: 'application/json',
               },
             }),
@@ -164,17 +257,35 @@ ANALIZA LA IMAGEN ADJUNTA y extrae la información de la vacante. Responde con e
           if (rawJson) {
             const parsed = JSON.parse(rawJson);
 
-            // Post-procesado: si la descripción menciona WhatsApp/teléfono,
-            // forzar applyMethod a PLATFORM aunque Gemini haya devuelto EMAIL
+            // 1. Limpieza de título: remover prefijos como "Buscamos personal para:"
+            if (parsed.title) {
+              parsed.title = parsed.title
+                .replace(/^(?:buscamos\s+(?:personal\s+para:?|personal:?|un\/a|a)?:?|se\s+busca:?|se\s+solicita:?|vacante(?:\s+de)?:?|oportunidad(?:\s+de)?:?)\s*/i, '')
+                .replace(/[▫️▪️🔹🔥🚨📌👉*•]+/g, '')
+                .trim();
+            }
+
+            // 2. Limpieza de descripción: asegurar que no haya quedado basura de Instagram
+            if (parsed.description) {
+              parsed.description = this.cleanInstagramNoise(parsed.description);
+            }
+            if (parsed.requirements) {
+              parsed.requirements = this.cleanInstagramNoise(parsed.requirements);
+            }
+            if (parsed.responsibilities) {
+              parsed.responsibilities = this.cleanInstagramNoise(parsed.responsibilities);
+            }
+
+            // 3. Post-procesado del método de postulación
             const desc = (parsed.description || '').toLowerCase();
             const hasWhatsApp = /whatsapp|wha?ts|wa\.me|809|829|849|\+1[-\s]?\(?8[0-9]{2}\)?/.test(desc);
             const hasPhone = /llama[r]?\s+al|escrib[ei]\s+al|cont[aá]ct[ao]\s+al|tel[eé]fono|celular/.test(desc);
 
-            if (hasWhatsApp || hasPhone) {
+            if (parsed.applyEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsed.applyEmail)) {
+              parsed.applyMethod = 'EMAIL';
+            } else if (hasWhatsApp || hasPhone) {
               parsed.applyMethod = 'PLATFORM';
-              if (!parsed.applyEmail) {
-                parsed.applyEmail = null;
-              }
+              parsed.applyEmail = null;
             }
 
             return parsed;
@@ -310,13 +421,23 @@ ANALIZA LA IMAGEN ADJUNTA y extrae la información de la vacante. Responde con e
    * Motor de extracción heurística y redacción para publicaciones dominicanas
    */
   private static heuristicJobExtractor(text: string): ExtractedJobData {
-    const lower = text.toLowerCase();
+    const cleanText = this.cleanInstagramNoise(text);
+    const lower = cleanText.toLowerCase();
     const check = this.isLegitimateJobOffer(text);
     const isJobOffer = check.isJob;
 
     // 2. Extraer correo para postulación
     const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
     const applyEmail = emailMatch ? emailMatch[1].toLowerCase() : null;
+
+    // Extraer WhatsApp o teléfono
+    const waMatch = text.match(/(?:whatsapp|wa\.me|escribe al|celular)[\s:]*([+0-9\s-]{8,20})/i);
+
+    // Extraer Horario si aparece
+    const schedMatch = text.match(/(?:horario|jornada)[\s:]*([^\n\r.]+)/i);
+
+    // Extraer Ubicación o Sector
+    const locMatch = text.match(/(?:ubicaci[oó]n|sector|direcci[oó]n)[\s:]*([^\n\r.]+)/i);
 
     // 3. Detectar Provincia
     const dominicanProvinces = [
@@ -352,101 +473,85 @@ ANALIZA LA IMAGEN ADJUNTA y extrae la información de la vacante. Responde con e
     }
 
     // 5. Detectar Título y Categoría con Diccionario Dominicano Especializado
-    let category = 'Administración & Oficina';
+    let category = 'Administración & Finanzas';
     let title = '';
 
-    // A. Buscar primero patrones explícitos de título en el texto
+    // A. Buscar primero patrones explícitos de título en el texto limpio
     const explicitTitleRegexes = [
-      /(?:vacante(?:s)?\s*(?:disponible(?:s)?)?:|puesto:|posici[oó]n:|se solicita:|se busca:|buscamos:?|solicitamos:?|requerimos:?)\s*([^\n\r,.;!]{3,60})/i,
-      /(?:^|\n)\s*(?:[🚨🔥💼📌✅📢👉]*\s*)?(?:se\s+busca|se\s+solicita|buscamos|solicitamos|vacante:?)\s+([^\n\r,.;!]{3,60})/i,
+      /(?:vacante(?:s)?\s*(?:disponible(?:s)?)?:|puesto:|posici[oó]n:|se solicita:|se busca:|buscamos:?|solicitamos:?|requerimos:?)\s*(?:personal\s+para:?)?\s*([^\n\r,.;!]{3,50})/i,
+      /(?:^|\n)\s*(?:[🚨🔥💼📌✅📢👉*•-]*\s*)?(?:se\s+busca|se\s+solicita|buscamos|solicitamos|vacante:?)\s+(?:personal\s+para:?)?\s*([^\n\r,.;!]{3,50})/i,
     ];
 
     for (const rx of explicitTitleRegexes) {
-      const match = text.match(rx);
+      const match = cleanText.match(rx);
       if (match && match[1]) {
-        const candidate = match[1].replace(/^[^\wáéíóúñÁÉÍÓÚÑ]+|[^\wáéíóúñÁÉÍÓÚÑ]+$/g, '').trim();
-        if (candidate.length >= 3 && candidate.length <= 60 && !candidate.toLowerCase().includes('http') && !candidate.includes('@')) {
+        let candidate = match[1]
+          .replace(/^(?:personal\s+para:?|personal:?|un\/a|a)\s*/i, '')
+          .replace(/^[^\wáéíóúñÁÉÍÓÚÑ]+|[^\wáéíóúñÁÉÍÓÚÑ]+$/g, '')
+          .replace(/[▫️▪️🔹🔥🚨📌👉*•]+/g, '')
+          .trim();
+        if (candidate.length >= 3 && candidate.length <= 50 && !candidate.toLowerCase().includes('http') && !candidate.includes('@')) {
           title = candidate;
           break;
         }
       }
     }
 
-    // B. Si no hay patrón explícito, buscar la primera línea que parezca un encabezado de vacante
-    if (!title) {
-      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-      for (const line of lines.slice(0, 5)) {
-        const cleanLine = line.replace(/^[🚨🔥💼📌✅📢👉*#•\-\s]+|[!*#\s]+$/g, '').trim();
-        if (
-          cleanLine.length >= 4 &&
-          cleanLine.length <= 50 &&
-          !cleanLine.toLowerCase().includes('http') &&
-          !cleanLine.includes('@') &&
-          !cleanLine.toLowerCase().includes('empleos_') &&
-          !cleanLine.toLowerCase().includes('república dominicana') &&
-          !cleanLine.toLowerCase().includes('republica dominicana') &&
-          !cleanLine.toLowerCase().includes('santo domingo') &&
-          !cleanLine.toLowerCase().includes('desliza') &&
-          !cleanLine.toLowerCase().includes('síguenos') &&
-          !cleanLine.toLowerCase().includes('etiqueta')
-        ) {
-          title = cleanLine;
-          break;
-        }
-      }
-    }
-
-    // C. Mapeo por palabras clave vocacionales dominicanas para títulos y categorías
+    // B. Mapeo por palabras clave vocacionales dominicanas para títulos y categorías
     const vocations: Array<{ pattern: RegExp; title: string; category: string }> = [
-      // Panadería y Pastelería
-      { pattern: /\b(panader[oa]|reposter[oa]|pastelero?|hornero)\b/i, title: 'Experto en Panadería / Repostería', category: 'Alimentos & Gastronomía' },
-      { pattern: /\b(cociner[oa]|chef|sous\s+chef|pizzero|ayudante\s+de\s+cocina|steward)\b/i, title: 'Cocinero / Personal de Cocina', category: 'Alimentos & Gastronomía' },
-      { pattern: /\b(meser[oa]|camarer[oa]|barista|bartender)\b/i, title: 'Mesero / Servicio Gastronómico', category: 'Alimentos & Gastronomía' },
-      
-      // Choferes y Transporte
-      { pattern: /\b(chofer\s+cat[.\s]*[234]|chofer\s+pesado|conductor|chofer)\b/i, title: 'Chofer Profesional', category: 'Logística & Transporte' },
-      { pattern: /\b(mensajer[oa]|delivery|motorizado)\b/i, title: 'Mensajero con Motor Propio', category: 'Logística & Transporte' },
-      { pattern: /\b(almac[eé]n|montacargas|montacarguista|estibador|despacho|inventario)\b/i, title: 'Auxiliar de Almacén & Logística', category: 'Logística & Operaciones' },
+      // Administración y Oficina
+      { pattern: /\b(asistente\s+administrativ[oa]|asistente\s+de\s+oficina)\b/i, title: 'Asistente Administrativo/a', category: 'Administración & Finanzas' },
+      { pattern: /\b(recepcionista|secretaria)\b/i, title: 'Recepcionista / Secretaria', category: 'Administración & Finanzas' },
+      { pattern: /\b(contab|contador[a]?|auditor[a]?|finanzas)\b/i, title: 'Asistente de Contabilidad & Finanzas', category: 'Administración & Finanzas' },
+      { pattern: /\b(recursos\s+humanos|rrhh|gesti[oó]n\s+humana|reclutador)\b/i, title: 'Generalista de Recursos Humanos', category: 'Administración & Finanzas' },
 
       // Ventas y Comercio
       { pattern: /\b(cajer[oa])\b/i, title: 'Cajero / Cajera', category: 'Ventas & Comercio' },
-      { pattern: /\b(asesor[a]?\s+de\s+ventas|ejecutiv[oa]\s+de\s+ventas|vendedor[a]?|promotor[a]?|mercaderista)\b/i, title: 'Ejecutivo / Asesor de Ventas', category: 'Ventas & Comercio' },
+      { pattern: /\b(asesor[a]?\s+de\s+ventas|ejecutiv[oa]\s+de\s+ventas|vendedor[a]?|promotor[a]?|mercaderista|agente\s+de\s+ventas)\b/i, title: 'Ejecutivo / Asesor de Ventas', category: 'Ventas & Comercio' },
+
+      // Call Center & BPO
+      { pattern: /\b(call\s+center|bilingual|biling[uü]e|customer\s+service|chat\s+agent)\b/i, title: 'Representante de Servicio al Cliente (Bilingüe)', category: 'Call Center & BPO' },
+
+      // Choferes y Transporte
+      { pattern: /\b(chofer\s+cat[.\s]*[234]|chofer\s+pesado|conductor|chofer)\b/i, title: 'Chofer Profesional', category: 'Logística & Operaciones' },
+      { pattern: /\b(mensajer[oa]|delivery|motorizado)\b/i, title: 'Mensajero con Motor Propio', category: 'Logística & Operaciones' },
+      { pattern: /\b(almac[eé]n|montacargas|montacarguista|estibador|despacho|inventario)\b/i, title: 'Auxiliar de Almacén & Logística', category: 'Logística & Operaciones' },
+
+      // Panadería y Gastronomía
+      { pattern: /\b(panader[oa]|reposter[oa]|pastelero?|hornero)\b/i, title: 'Experto en Panadería / Repostería', category: 'Turismo & Hotelería' },
+      { pattern: /\b(cociner[oa]|chef|sous\s+chef|pizzero|ayudante\s+de\s+cocina|steward)\b/i, title: 'Cocinero / Personal de Cocina', category: 'Turismo & Hotelería' },
+      { pattern: /\b(meser[oa]|camarer[oa]|barista|bartender)\b/i, title: 'Mesero / Servicio Gastronómico', category: 'Turismo & Hotelería' },
 
       // Salud y Medicina
       { pattern: /\b(enfermer[oa]|auxiliar\s+de\s+enfermer[ií]a)\b/i, title: 'Enfermero/a Profesional', category: 'Salud & Medicina' },
       { pattern: /\b(m[eé]dic[oa]|asistente\s+dental|odont[oó]log[oa]|farmac[eé]utic[oa]|bioanalista)\b/i, title: 'Profesional del Área de Salud', category: 'Salud & Medicina' },
 
       // Limpieza y Seguridad
-      { pattern: /\b(conserje|limpieza|mantenimiento|afanador)\b/i, title: 'Personal de Limpieza & Conserjería', category: 'Mantenimiento & Limpieza' },
-      { pattern: /\b(seguridad|vigilante|guardaespaldas|oficial\s+de\s+seguridad)\b/i, title: 'Oficial de Seguridad', category: 'Seguridad' },
+      { pattern: /\b(conserje|limpieza|mantenimiento|afanador)\b/i, title: 'Personal de Limpieza & Mantenimiento', category: 'Servicio al Cliente' },
+      { pattern: /\b(seguridad|vigilante|guardaespaldas|oficial\s+de\s+seguridad)\b/i, title: 'Oficial de Seguridad', category: 'Servicio al Cliente' },
 
-      // Administración y Oficina
-      { pattern: /\b(recepcionista|secretaria)\b/i, title: 'Recepcionista / Secretaria', category: 'Administración & Oficina' },
-      { pattern: /\b(asistente\s+administrativ[oa]|asistente\s+de\s+oficina)\b/i, title: 'Asistente Administrativo/a', category: 'Administración & Oficina' },
-      { pattern: /\b(contab|contador[a]?|auditor[a]?|finanzas)\b/i, title: 'Asistente de Contabilidad & Finanzas', category: 'Banca & Finanzas' },
-      { pattern: /\b(recursos\s+humanos|rrhh|gesti[oó]n\s+humana|reclutador)\b/i, title: 'Generalista de Recursos Humanos', category: 'Recursos Humanos' },
-
-      // Call Center & BPO
-      { pattern: /\b(call\s+center|bilingual|biling[uü]e|customer\s+service|chat\s+agent)\b/i, title: 'Representante de Servicio al Cliente (Bilingüe)', category: 'Call Center & BPO' },
-
-      // Tecnología (¡SOLO PALABRAS PRECISAS, NUNCA 'ti' A SECAS!)
+      // Tecnología
       { pattern: /\b(desarrollador|programador|software|soporte\s+t[eé]cnico|full\s+stack|frontend|backend|devops|ingeniero\s+de\s+sistemas)\b/i, title: 'Especialista en Desarrollo y Tecnología', category: 'Tecnología' },
     ];
 
     for (const voc of vocations) {
       if (voc.pattern.test(lower)) {
         category = voc.category;
-        if (!title || title.length > 50) {
+        if (!title || title.length > 50 || title.toLowerCase().includes('buscamos')) {
           title = voc.title;
         }
         break;
       }
     }
 
-    // Si aún no tenemos título específico
+    // Normalizar título final
     if (!title || title.length < 3) {
       title = 'Colaborador / Posición Vacante';
     }
+    title = title
+      .replace(/^(?:buscamos\s+(?:personal\s+para:?|personal:?|un\/a|a)?:?|se\s+busca:?|se\s+solicita:?|vacante(?:\s+de)?:?)\s*/i, '')
+      .replace(/[▫️▪️🔹🔥🚨📌👉*•]+/g, '')
+      .trim();
 
     // 6. Detectar salarios
     let salaryMin: number | null = null;
@@ -462,10 +567,34 @@ ANALIZA LA IMAGEN ADJUNTA y extrae la información de la vacante. Responde con e
       }
     }
 
+    // 7. Detectar nombre de empresa si aparece
+    let companyName = 'Empresa Destacada';
+    if (/3nl|tres\s+en\s+l[ií]nea/i.test(text)) {
+      companyName = '3NL Tres en Línea, S.R.L.';
+    }
+
+    // 8. Construir Descripción Profesional sin basura de Instagram
+    let description = `Oportunidad laboral para el puesto de ${title} en ${province}, República Dominicana. Esta posición está dirigida a personas proactivas, responsables y orientadas a resultados con deseos de crecimiento profesional.`;
+
+    if (schedMatch) {
+      description += `\n\n⏰ Horario: ${schedMatch[1].trim()}`;
+    }
+    if (locMatch) {
+      description += `\n\n📍 Ubicación: ${locMatch[1].trim()}`;
+    }
+
+    if (applyEmail) {
+      description += `\n\n📩 Para postularte a esta vacante, envía tu currículum actualizado a: ${applyEmail}`;
+    } else if (waMatch) {
+      description += `\n\n📲 Para postularte o solicitar información, comunícate vía WhatsApp al: ${waMatch[1].trim()}`;
+    } else {
+      description += `\n\n👉 Puedes postularte a esta posición directamente a través de Quisqueya Talent completando tu perfil profesional verificado.`;
+    }
+
     return {
       isJobOffer,
       title: title || 'Posición Laboral Requerida',
-      companyName: 'Empresa Destacada',
+      companyName,
       category,
       province,
       jobType: 'FULL_TIME',
@@ -477,10 +606,10 @@ ANALIZA LA IMAGEN ADJUNTA y extrae la información de la vacante. Responde con e
       isSalaryPublic: salaryMin !== null,
       applyMethod: applyEmail ? 'EMAIL' : 'PLATFORM',
       applyEmail: applyEmail,
-      description: `Oportunidad laboral para el puesto de ${title} en ${province}, República Dominicana. Buscamos una persona responsable, proactiva y con deseos de crecimiento profesional.\n\n${text.substring(0, 300)}...`,
-      responsibilities: `• Ejecutar las funciones clave vinculadas a la posición de ${title}.\n• Cumplir con los estándares operativos y metas de productividad establecidas.\n• Colaborar proactivamente con el equipo de trabajo y coordinadores.`,
-      requirements: `• Experiencia previa comprobable en roles similares o formación técnica correspondiente.\n• Residir en ${province} o contar con disponibilidad de traslado.\n• Compromiso, puntualidad y excelentes relaciones interpersonales.`,
-      benefits: `• Compensación acorde al mercado dominicano.\n• Todos los beneficios de ley (Seguro Familiar de Salud TSS, Regalía, Vacaciones).\n• Oportunidades de capacitación y desarrollo profesional.`,
+      description,
+      responsibilities: `• Cumplir eficazmente con las funciones principales de la posición de ${title}.\n• Mantener altos estándares de productividad, organización y calidad en el trabajo diario.\n• Coordinar y comunicarse proactivamente con el equipo y supervisores inmediatos.`,
+      requirements: `• Formación académica, técnica o experiencia previa afín al puesto de ${title}.\n• Residencia en ${province} o facilidad de transporte hacia el área de trabajo.\n• Responsabilidad, proactividad, buenas relaciones interpersonales y puntualidad.`,
+      benefits: `• Compensación competitiva acorde al mercado dominicano.\n• Todos los beneficios de ley (Seguro Familiar de Salud TSS, Regalía Pascual, Vacaciones).\n• Estabilidad laboral y oportunidades de capacitación continua.`,
       skills: ['Responsabilidad', 'Puntualidad', 'Trabajo en Equipo', 'Comunicación'],
     };
   }

@@ -162,14 +162,16 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
   // Evitar bloqueos CORP (ERR_BLOCKED_BY_RESPONSE.NotSameOrigin) canalizando imágenes externas de Instagram por el proxy
   const getSafeImageUrl = (url: string | null | undefined) => {
     if (!url) return '';
-    if (url.startsWith('/api/ai/publisher/proxy-image')) {
-      return `${API_URL}${url}`;
+    const cleanUrl = url.includes(',') ? url.split(',')[0].trim() : url.trim();
+    if (!cleanUrl) return '';
+    if (cleanUrl.startsWith('/api/ai/publisher/proxy-image')) {
+      return `${API_URL}${cleanUrl}`;
     }
-    if (url.startsWith('/')) return `${API_URL}${url}`;
-    if (url.includes('fbcdn.net') || url.includes('cdninstagram.com')) {
-      return `${API_URL}/api/ai/publisher/proxy-image?url=${encodeURIComponent(url)}`;
+    if (cleanUrl.startsWith('/')) return `${API_URL}${cleanUrl}`;
+    if (cleanUrl.includes('fbcdn.net') || cleanUrl.includes('cdninstagram.com')) {
+      return `${API_URL}/api/ai/publisher/proxy-image?url=${encodeURIComponent(cleanUrl)}`;
     }
-    return url;
+    return cleanUrl;
   };
 
   // Alternar pausa / reanudación
@@ -787,11 +789,11 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
           <div className="bg-white/10 backdrop-blur-md border border-white/15 p-4 rounded-2xl flex items-center gap-3 shrink-0">
             <div className="w-12 h-12 rounded-xl bg-white p-1.5 flex items-center justify-center shrink-0 shadow-xs">
               <img
-                src="/logo-quisqueya-talent.png"
+                src="/icono.svg"
                 alt="Quisqueya Talent"
                 className="w-full h-full object-contain"
                 onError={(e: any) => {
-                  e.target.src = '/logo.png';
+                  e.target.src = '/icono.svg';
                 }}
               />
             </div>
@@ -1635,7 +1637,7 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
 
                     {/* Contenido / Datos Extraídos */}
                     <div className="flex gap-3 items-start">
-                      {item.imageUrl && (
+                      {item.imageUrl ? (
                         <div className="w-16 h-16 rounded-xl bg-slate-100 shrink-0 overflow-hidden border border-slate-200">
                           <img
                             src={getSafeImageUrl(item.imageUrl)}
@@ -1646,9 +1648,25 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                             }}
                           />
                         </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl bg-blue-50 border border-blue-200/80 shrink-0 flex items-center justify-center p-2">
+                          <img src="/icono.svg" alt="Quisqueya Talent" className="w-full h-full object-contain" />
+                        </div>
                       )}
 
-                      <div className="space-y-1 flex-1 min-w-0">
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-200/80 px-2 py-0.5 rounded-md text-[10px] font-black">
+                            <img src="/icono.svg" alt="QT" className="w-3 h-3 object-contain" />
+                            Quisqueya Talent
+                          </span>
+                          {extracted?.category && (
+                            <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-md">
+                              {extracted.category}
+                            </span>
+                          )}
+                        </div>
+
                         <h4 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2">
                           {extracted?.title || (item.captionText ? item.captionText.substring(0, 70) + '...' : 'Vacante en cola')}
                         </h4>
@@ -1773,6 +1791,42 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
 
             {/* Formulario */}
             <form onSubmit={handleSaveEdit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Badge oficial Quisqueya Talent */}
+              <div className="flex items-center gap-2.5 bg-blue-50 border border-blue-200/80 rounded-2xl p-3">
+                <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center border border-blue-100 shrink-0 shadow-2xs">
+                  <img src="/icono.svg" alt="Quisqueya Talent" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <span className="text-xs font-black text-blue-950 flex items-center gap-1">
+                    Publicación Oficial Quisqueya Talent <span className="text-blue-600 text-[11px]">✓</span>
+                  </span>
+                  <p className="text-[11px] text-blue-700">
+                    Esta vacante se publicará con el ícono y la verificación oficial de Quisqueya Talent
+                  </p>
+                </div>
+              </div>
+
+              {/* Vista previa del afiche/imagen de Instagram */}
+              {editingItem.imageUrl && (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-xl bg-white border border-slate-300 overflow-hidden shrink-0">
+                    <img
+                      src={getSafeImageUrl(editingItem.imageUrl)}
+                      alt="Afiche"
+                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition"
+                      onClick={() => window.open(getSafeImageUrl(editingItem.imageUrl), '_blank')}
+                      title="Clic para ver imagen en tamaño completo"
+                    />
+                  </div>
+                  <div className="space-y-0.5 text-xs">
+                    <span className="font-bold text-slate-900 block">Afiche de la Vacante (Fuente Principal)</span>
+                    <p className="text-[11px] text-slate-500">
+                      Los requisitos, horario, beneficios y forma de aplicar se extraen prioritariamente de este afiche.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Texto original de Instagram */}
               {editingItem.captionText && (
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1">

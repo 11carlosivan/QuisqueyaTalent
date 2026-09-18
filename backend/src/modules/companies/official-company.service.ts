@@ -119,6 +119,14 @@ export class OfficialCompanyService {
 
     if (!company) {
       company = await this.ensureOfficialCompany();
+    } else if (company.logoUrl !== '/icono.svg' || !company.isVerified) {
+      company = await prisma.company.update({
+        where: { id: company.id },
+        data: {
+          logoUrl: '/icono.svg',
+          isVerified: true,
+        },
+      });
     }
 
     return company;

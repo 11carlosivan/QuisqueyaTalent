@@ -404,12 +404,33 @@ export class InstagramScraperService {
           node.caption?.text ||
           node.caption ||
           '';
-        const imageUrl =
+
+        const sidecarEdges = node.edge_sidecar_to_children?.edges || node.carousel_media || [];
+        const slideUrls: string[] = [];
+        if (Array.isArray(sidecarEdges) && sidecarEdges.length > 0) {
+          for (const s of sidecarEdges) {
+            const sNode = s.node || s;
+            const sUrl =
+              sNode.display_url ||
+              sNode.display_src ||
+              sNode.image_versions2?.candidates?.[0]?.url ||
+              '';
+            if (sUrl && typeof sUrl === 'string' && sUrl.startsWith('http')) {
+              slideUrls.push(sUrl);
+            }
+          }
+        }
+
+        const rawImgUrl =
           node.display_url ||
           node.display_src ||
           node.thumbnail_src ||
           node.image_versions2?.candidates?.[0]?.url ||
           '';
+
+        const finalImageUrl =
+          slideUrls.length > 0 ? slideUrls.join(',') : typeof rawImgUrl === 'string' ? rawImgUrl : '';
+
         const timestamp = node.taken_at_timestamp
           ? new Date(node.taken_at_timestamp * 1000)
           : node.device_timestamp
@@ -420,7 +441,7 @@ export class InstagramScraperService {
           id: shortcode,
           url: `https://www.instagram.com/p/${shortcode}/`,
           caption: typeof caption === 'string' ? caption : '',
-          imageUrl: typeof imageUrl === 'string' ? imageUrl : '',
+          imageUrl: finalImageUrl,
           publishedAt: timestamp,
         });
       }
