@@ -59,8 +59,28 @@ router.get('/', async (req: Request, res: Response) => {
       }),
     ]);
 
+    const processedJobs = jobs.map((j) => {
+      const isOfficialOrAI =
+        j.company?.slug === 'quisqueyatalent' ||
+        j.company?.name?.toLowerCase().includes('quisqueya') ||
+        j.description?.includes('Quisqueya Talent') ||
+        !j.company?.logoUrl;
+
+      if (isOfficialOrAI && j.company) {
+        return {
+          ...j,
+          company: {
+            ...j.company,
+            logoUrl: '/icono.svg',
+            isVerified: true,
+          },
+        };
+      }
+      return j;
+    });
+
     return res.json({
-      data: jobs,
+      data: processedJobs,
       pagination: {
         total,
         page: parseInt(page as string),
@@ -163,7 +183,34 @@ router.get('/:slug', async (req: Request, res: Response) => {
       },
     });
 
-    return res.json({ job, relatedJobs });
+    if (
+      job.company &&
+      (job.company.slug === 'quisqueyatalent' ||
+        job.company.name?.toLowerCase().includes('quisqueya') ||
+        job.description?.includes('Quisqueya Talent') ||
+        !job.company.logoUrl)
+    ) {
+      job.company.logoUrl = '/icono.svg';
+      job.company.isVerified = true;
+    }
+
+    const processedRelated = relatedJobs.map((rj) => {
+      if (
+        rj.company &&
+        (rj.company.name?.toLowerCase().includes('quisqueya') || !rj.company.logoUrl)
+      ) {
+        return {
+          ...rj,
+          company: {
+            ...rj.company,
+            logoUrl: '/icono.svg',
+          },
+        };
+      }
+      return rj;
+    });
+
+    return res.json({ job, relatedJobs: processedRelated });
   } catch (error) {
     return res.status(500).json({ error: 'Error obteniendo detalle de la vacante' });
   }

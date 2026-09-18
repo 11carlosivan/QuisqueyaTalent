@@ -102,6 +102,43 @@ export class OfficialCompanyService {
         });
       }
 
+      // 4. Garantizar que TODAS las vacantes de IA y relacionadas con Quisqueya Talent
+      // queden 100% asociadas a la empresa oficial con logo /icono.svg
+      if (company) {
+        await prisma.company.updateMany({
+          where: {
+            OR: [
+              { slug: OFFICIAL_COMPANY_SLUG },
+              { name: { contains: 'Quisqueya' } },
+            ],
+          },
+          data: {
+            logoUrl: '/icono.svg',
+            isVerified: true,
+          },
+        });
+
+        const aiQueueJobs = await prisma.aiJobQueue.findMany({
+          where: { jobId: { not: null } },
+          select: { jobId: true },
+        });
+        const queueJobIds = aiQueueJobs.map((q) => q.jobId!).filter(Boolean);
+
+        const updatedJobs = await prisma.job.updateMany({
+          where: {
+            OR: [
+              { id: { in: queueJobIds } },
+              { description: { contains: 'Quisqueya Talent' } },
+              { companyId: company.id },
+            ],
+          },
+          data: {
+            companyId: company.id,
+          },
+        });
+        console.log(`✨ ${updatedJobs.count} vacante(s) de IA vinculadas a la empresa oficial Quisqueya Talent con logo /icono.svg`);
+      }
+
       return company;
     } catch (error) {
       console.error('Error asegurando empresa oficial Quisqueya Talent:', error);
