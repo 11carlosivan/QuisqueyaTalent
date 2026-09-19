@@ -617,6 +617,21 @@ export default function SocialMediaTab({ token }: SocialMediaTabProps) {
                 </div>
               </div>
 
+              <div className="p-3 bg-emerald-950/60 border border-emerald-500/30 rounded-2xl space-y-1.5 text-xs">
+                <div className="font-bold text-emerald-300 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Grupo Oficial Vinculado:
+                </div>
+                <a
+                  href="https://chat.whatsapp.com/F3LjBjLYwSl3TzLQUoe70b"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-emerald-400 underline break-all font-mono block hover:text-emerald-300"
+                >
+                  https://chat.whatsapp.com/F3LjBjLYwSl3TzLQUoe70b
+                </a>
+              </div>
+
               <div className="text-[11px] text-slate-400 p-2 bg-slate-800/40 rounded-xl">
                 💡 <strong>Tip para República Dominicana:</strong> Los canales oficiales de WhatsApp permiten que candidatos se suscriban con 1 clic sin revelar su número telefónico, alcanzando miles de postulantes orgánicamente.
               </div>

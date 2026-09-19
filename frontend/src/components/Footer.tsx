@@ -28,6 +28,16 @@ export const Footer: React.FC = () => {
               <li><Link href="/dashboard/candidato/postulaciones" className="hover:text-white transition">Mis Postulaciones</Link></li>
               <li><Link href="/empleos?category=Call+Center+y+BPO" className="hover:text-white transition">Call Centers & BPO</Link></li>
               <li><Link href="/empleos?workplaceType=REMOTE" className="hover:text-white transition">Trabajos Remotos</Link></li>
+              <li>
+                <a
+                  href="https://chat.whatsapp.com/F3LjBjLYwSl3TzLQUoe70b"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 hover:text-emerald-300 font-semibold transition flex items-center gap-1.5"
+                >
+                  💬 Grupo de WhatsApp (RD)
+                </a>
+              </li>
             </ul>
           </div>
 
