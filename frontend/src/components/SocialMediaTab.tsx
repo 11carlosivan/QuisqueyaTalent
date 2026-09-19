@@ -617,23 +617,50 @@ export default function SocialMediaTab({ token }: SocialMediaTabProps) {
                 </div>
               </div>
 
-              <div className="p-3 bg-emerald-950/60 border border-emerald-500/30 rounded-2xl space-y-1.5 text-xs">
-                <div className="font-bold text-emerald-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  Grupo Oficial Vinculado:
+              <div className="space-y-2.5">
+                <div className="p-3 bg-emerald-950/60 border border-emerald-500/30 rounded-2xl space-y-1.5 text-xs">
+                  <div className="font-bold text-emerald-300 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      📢 Canal Oficial Vinculado:
+                    </span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-semibold">
+                      Ilimitado
+                    </span>
+                  </div>
+                  <a
+                    href="https://whatsapp.com/channel/0029Vb8cLMwElagrpADWIk0T"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-emerald-400 underline break-all font-mono block hover:text-emerald-300"
+                  >
+                    https://whatsapp.com/channel/0029Vb8cLMwElagrpADWIk0T
+                  </a>
                 </div>
-                <a
-                  href="https://chat.whatsapp.com/F3LjBjLYwSl3TzLQUoe70b"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[11px] text-emerald-400 underline break-all font-mono block hover:text-emerald-300"
-                >
-                  https://chat.whatsapp.com/F3LjBjLYwSl3TzLQUoe70b
-                </a>
+
+                <div className="p-3 bg-slate-900/80 border border-slate-700/60 rounded-2xl space-y-1.5 text-xs">
+                  <div className="font-bold text-slate-300 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-slate-400" />
+                      💬 Grupo Oficial Vinculado:
+                    </span>
+                    <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">
+                      Comunidad
+                    </span>
+                  </div>
+                  <a
+                    href="https://chat.whatsapp.com/F3LjBjLYwSl3TzLQUoe70b"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-sky-400 underline break-all font-mono block hover:text-sky-300"
+                  >
+                    https://chat.whatsapp.com/F3LjBjLYwSl3TzLQUoe70b
+                  </a>
+                </div>
               </div>
 
-              <div className="text-[11px] text-slate-400 p-2 bg-slate-800/40 rounded-xl">
-                💡 <strong>Tip para República Dominicana:</strong> Los canales oficiales de WhatsApp permiten que candidatos se suscriban con 1 clic sin revelar su número telefónico, alcanzando miles de postulantes orgánicamente.
+              <div className="text-[11px] text-slate-400 p-2.5 bg-slate-800/40 rounded-xl leading-relaxed">
+                💡 <strong>Tip para República Dominicana:</strong> El <strong>Canal Oficial</strong> permite que miles de personas reciban las alertas sin límite y con privacidad absoluta de su número telefónico. El <strong>Grupo</strong> permite interacción comunitaria.
               </div>
             </div>
           </div>

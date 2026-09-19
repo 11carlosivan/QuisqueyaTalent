@@ -30,12 +30,22 @@ export const Footer: React.FC = () => {
               <li><Link href="/empleos?workplaceType=REMOTE" className="hover:text-white transition">Trabajos Remotos</Link></li>
               <li>
                 <a
-                  href="https://chat.whatsapp.com/F3LjBjLYwSl3TzLQUoe70b"
+                  href="https://whatsapp.com/channel/0029Vb8cLMwElagrpADWIk0T"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-400 hover:text-emerald-300 font-semibold transition flex items-center gap-1.5"
                 >
-                  💬 Grupo de WhatsApp (RD)
+                  📢 Canal de WhatsApp (Alertas RD)
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://chat.whatsapp.com/F3LjBjLYwSl3TzLQUoe70b"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-400 hover:text-white transition flex items-center gap-1.5"
+                >
+                  💬 Grupo de WhatsApp (Comunidad)
                 </a>
               </li>
             </ul>
