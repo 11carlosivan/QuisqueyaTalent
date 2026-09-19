@@ -61,12 +61,12 @@ export default function SocialMediaTab({ token }: SocialMediaTabProps) {
 
   // Configuración de redes
   const [settings, setSettings] = useState({
-    autoShareOnPublish: false,
+    autoShareOnPublish: true,
     // WhatsApp
-    whatsappActive: false,
-    whatsappWebhookUrl: '',
-    whatsappChannelId: '',
-    whatsappApiKey: '',
+    whatsappActive: true,
+    whatsappWebhookUrl: 'https://7107.api.greenapi.com/waInstance710722741020/sendMessage/8855ab5f803e4527b7d9580c95151dd142f950a3165647849b',
+    whatsappChannelId: '120363429972361642@g.us',
+    whatsappApiKey: '8855ab5f803e4527b7d9580c95151dd142f950a3165647849b',
     whatsappTemplate: '',
     // Twitter / X
     twitterActive: false,

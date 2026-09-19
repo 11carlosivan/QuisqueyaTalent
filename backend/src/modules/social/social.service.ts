@@ -25,11 +25,25 @@ export class SocialService {
       settings = await prisma.socialMediaSetting.create({
         data: {
           id: 'default',
-          autoShareOnPublish: false,
-          whatsappActive: false,
+          autoShareOnPublish: true,
+          whatsappActive: true,
+          whatsappWebhookUrl: 'https://7107.api.greenapi.com/waInstance710722741020/sendMessage/8855ab5f803e4527b7d9580c95151dd142f950a3165647849b',
+          whatsappChannelId: '120363429972361642@g.us',
+          whatsappApiKey: '8855ab5f803e4527b7d9580c95151dd142f950a3165647849b',
           twitterActive: false,
           facebookActive: false,
           instagramActive: false,
+        },
+      });
+    } else if (!settings.whatsappWebhookUrl) {
+      settings = await prisma.socialMediaSetting.update({
+        where: { id: 'default' },
+        data: {
+          whatsappActive: true,
+          autoShareOnPublish: true,
+          whatsappWebhookUrl: 'https://7107.api.greenapi.com/waInstance710722741020/sendMessage/8855ab5f803e4527b7d9580c95151dd142f950a3165647849b',
+          whatsappChannelId: '120363429972361642@g.us',
+          whatsappApiKey: '8855ab5f803e4527b7d9580c95151dd142f950a3165647849b',
         },
       });
     }
@@ -217,19 +231,41 @@ export class SocialService {
     }
 
     const message = this.formatMessage(data, 'WHATSAPP', settings.whatsappTemplate);
+    const targetChatId = settings.whatsappChannelId || undefined;
 
     try {
+      let targetUrl = settings.whatsappWebhookUrl.trim();
+
+      // Si es Green-API y el usuario colocó solo el host base
+      if (
+        (targetUrl.includes('greenapi.com') || targetUrl.includes('green-api.com')) &&
+        !targetUrl.includes('/sendMessage/') &&
+        !targetUrl.includes('/sendFileByUrl/')
+      ) {
+        const cleanHost = targetUrl.replace(/\/+$/, '');
+        const instance = settings.whatsappApiKey ? '710722741020' : '';
+        const token = settings.whatsappApiKey || '';
+        // Si el usuario puso el host base y el token
+        if (targetUrl.includes('/waInstance')) {
+          targetUrl = `${cleanHost}/sendMessage/${token}`;
+        } else {
+          targetUrl = `${cleanHost}/waInstance710722741020/sendMessage/${token}`;
+        }
+      }
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (settings.whatsappApiKey) {
+      if (settings.whatsappApiKey && !targetUrl.includes(settings.whatsappApiKey)) {
         headers['Authorization'] = `Bearer ${settings.whatsappApiKey}`;
         headers['x-api-key'] = settings.whatsappApiKey;
       }
 
-      const payload = {
-        recipient: settings.whatsappChannelId || undefined,
-        channelId: settings.whatsappChannelId || undefined,
+      // Payload universal compatible con Green-API, Baileys, Evolution API y n8n
+      const payload: any = {
+        chatId: targetChatId,
+        recipient: targetChatId,
+        channelId: targetChatId,
         message,
         text: message,
         caption: message,
@@ -239,7 +275,7 @@ export class SocialService {
         timestamp: new Date().toISOString(),
       };
 
-      const response = await fetch(settings.whatsappWebhookUrl, {
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -257,7 +293,7 @@ export class SocialService {
 
       return {
         success: true,
-        id: resData.id || resData.messageId || resData.key?.id || `wa-${Date.now()}`,
+        id: resData.idMessage || resData.id || resData.messageId || resData.key?.id || `wa-${Date.now()}`,
       };
     } catch (err: any) {
       return { success: false, error: err.message || 'Error de conexión con WhatsApp Webhook' };
