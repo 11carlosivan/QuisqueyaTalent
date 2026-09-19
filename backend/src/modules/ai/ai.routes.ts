@@ -497,6 +497,7 @@ router.get('/publisher/proxy-image', async (req: Request, res: Response) => {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
     const arrayBuffer = await response.arrayBuffer();
     return res.send(Buffer.from(arrayBuffer));

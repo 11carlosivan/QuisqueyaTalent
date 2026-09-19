@@ -291,8 +291,18 @@ export class AIQueueService {
 
     const processedItems = items.map((item) => {
       let safeImageUrl = item.imageUrl;
-      if (safeImageUrl && (safeImageUrl.includes('fbcdn.net') || safeImageUrl.includes('cdninstagram.com'))) {
-        safeImageUrl = `/api/ai/publisher/proxy-image?url=${encodeURIComponent(safeImageUrl)}`;
+      if (safeImageUrl) {
+        const urls = safeImageUrl.split(',').map((u) => u.trim()).filter(Boolean);
+        const proxied = urls.map((u) => {
+          if (
+            (u.includes('fbcdn.net') || u.includes('cdninstagram.com')) &&
+            !u.startsWith('/api/ai/publisher/proxy-image')
+          ) {
+            return `/api/ai/publisher/proxy-image?url=${encodeURIComponent(u)}`;
+          }
+          return u;
+        });
+        safeImageUrl = proxied.join(',');
       }
       return {
         ...item,
