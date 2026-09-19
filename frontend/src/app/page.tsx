@@ -22,6 +22,8 @@ import {
   Clock,
   Filter,
   Users,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface Job {
@@ -56,6 +58,13 @@ function HomePageContent() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [selectedProvince, setSelectedProvince] = useState(searchParams.get('province') || 'all');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const limit = 12;
+
   const resultsRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -88,7 +97,7 @@ function HomePageContent() {
     { name: 'Zonas Francas & Logística', icon: '🏭', count: '76 vacantes' },
   ];
 
-  const fetchJobs = useCallback(async (triggerScroll = false) => {
+  const fetchJobs = useCallback(async (pageToFetch = currentPage, triggerScroll = false) => {
     setLoading(true);
     if (triggerScroll) setIsSearching(true);
     try {
@@ -96,11 +105,17 @@ function HomePageContent() {
       if (searchQuery) params.set('q', searchQuery);
       if (selectedProvince !== 'all') params.set('province', selectedProvince);
       if (selectedCategory !== 'all') params.set('category', selectedCategory);
+      params.set('page', String(pageToFetch));
+      params.set('limit', String(limit));
 
       const res = await fetch(`${API_URL}/api/jobs?${params.toString()}`);
       const data = await res.json();
       if (data && data.data) {
         setJobs(data.data);
+      }
+      if (data && data.pagination) {
+        setTotalJobs(data.pagination.total ?? 0);
+        setTotalPages(data.pagination.totalPages || 1);
       }
     } catch (e) {
       console.error('Error cargando vacantes:', e);
@@ -115,16 +130,51 @@ function HomePageContent() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedProvince, selectedCategory]);
+  }, [searchQuery, selectedProvince, selectedCategory, currentPage]);
 
   useEffect(() => {
-    fetchJobs(false);
+    fetchJobs(currentPage, false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedProvince, selectedCategory]);
+  }, [searchQuery, selectedProvince, selectedCategory, currentPage]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchJobs(true);
+    setCurrentPage(1);
+    fetchJobs(1, true);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    setCurrentPage(newPage);
+    setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
+
+  const getPageNumbers = () => {
+    const delta = 2;
+    const range: (number | string)[] = [];
+    for (
+      let i = Math.max(2, currentPage - delta);
+      i <= Math.min(totalPages - 1, currentPage + delta);
+      i++
+    ) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      range.unshift('...');
+    }
+    if (currentPage + delta < totalPages - 1) {
+      range.push('...');
+    }
+
+    range.unshift(1);
+    if (totalPages > 1) {
+      range.push(totalPages);
+    }
+
+    return range;
   };
 
   return (
@@ -216,7 +266,10 @@ function HomePageContent() {
             {['Call Center Bilingüe', 'Desarrollador React', 'Ventas B2B', 'Ciberseguridad', 'Remoto'].map((tag) => (
               <button
                 key={tag}
-                onClick={() => setSearchQuery(tag)}
+                onClick={() => {
+                  setSearchQuery(tag);
+                  setCurrentPage(1);
+                }}
                 className="bg-white/10 hover:bg-white/20 border border-white/15 px-3 py-1 rounded-full transition cursor-pointer text-slate-200"
               >
                 {tag}
@@ -247,6 +300,7 @@ function HomePageContent() {
               setSelectedCategory('all');
               setSelectedProvince('all');
               setSearchQuery('');
+              setCurrentPage(1);
             }}
             className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
           >
@@ -260,7 +314,10 @@ function HomePageContent() {
             return (
               <button
                 key={cat.name}
-                onClick={() => setSelectedCategory(isSelected ? 'all' : cat.name)}
+                onClick={() => {
+                  setSelectedCategory(isSelected ? 'all' : cat.name);
+                  setCurrentPage(1);
+                }}
                 className={`p-4 rounded-2xl border text-left transition-all group cursor-pointer ${
                   isSelected
                     ? 'border-blue-600 bg-blue-50/80 shadow-sm'
@@ -292,7 +349,19 @@ function HomePageContent() {
             </h2>
           </div>
           <div className="text-sm text-slate-500 font-medium">
-            Mostrando <span className="font-bold text-slate-900">{jobs.length}</span> empleos disponibles
+            {totalJobs > 0 ? (
+              <>
+                Mostrando{' '}
+                <span className="font-bold text-slate-900">
+                  {(currentPage - 1) * limit + 1} - {Math.min(currentPage * limit, totalJobs)}
+                </span>{' '}
+                de <span className="font-bold text-blue-600">{totalJobs}</span> vacantes disponibles
+              </>
+            ) : loading ? (
+              <span>Buscando vacantes...</span>
+            ) : (
+              <span>0 vacantes disponibles</span>
+            )}
           </div>
         </div>
 
@@ -324,6 +393,7 @@ function HomePageContent() {
                 setSearchQuery('');
                 setSelectedProvince('all');
                 setSelectedCategory('all');
+                setCurrentPage(1);
               }}
               className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition"
             >
@@ -449,6 +519,59 @@ function HomePageContent() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Controles de Paginación */}
+        {totalPages > 1 && (
+          <div className="mt-10 mb-8 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-slate-500 font-medium order-2 sm:order-1">
+              Página <span className="font-bold text-slate-900">{currentPage}</span> de{' '}
+              <span className="font-bold text-slate-900">{totalPages}</span> ({totalJobs} vacantes en total)
+            </p>
+
+            <div className="flex items-center gap-1.5 order-1 sm:order-2 flex-wrap justify-center">
+              {/* Botón Anterior */}
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage <= 1 || loading}
+                className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" /> Anterior
+              </button>
+
+              {/* Números de página */}
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((p, idx) =>
+                  typeof p === 'number' ? (
+                    <button
+                      key={idx}
+                      onClick={() => handlePageChange(p)}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center ${
+                        currentPage === p
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={idx} className="px-1 text-slate-400 font-bold text-xs select-none">
+                      {p}
+                    </span>
+                  )
+                )}
+              </div>
+
+              {/* Botón Siguiente */}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages || loading}
+                className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+              >
+                Siguiente <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
 
