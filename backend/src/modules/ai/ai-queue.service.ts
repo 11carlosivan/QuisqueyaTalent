@@ -4,6 +4,7 @@ import { JobStatus, JobType, WorkplaceType, ExperienceLevel } from '@prisma/clie
 import prisma from '../../config/prisma';
 import AIService, { ExtractedJobData } from './ai.service';
 import OfficialCompanyService from '../companies/official-company.service';
+import { InstagramScraperService } from './instagram-scraper.service';
 
 const uploadsDir = path.join(process.cwd(), 'uploads');
 const configFile = path.join(uploadsDir, 'ai-config.json');
@@ -668,10 +669,40 @@ export class AIQueueService {
       throw new Error('Elemento de cola no encontrado');
     }
 
+    let activeImageUrl = item.imageUrl || undefined;
+    let activeCaption = item.captionText || '';
+
+    // Si tiene postUrl de Instagram (o si imageUrl está vacía / expirada), refrescar datos en vivo de Instagram
+    if (item.postUrl && (item.postUrl.includes('/p/') || item.postUrl.includes('/reel/'))) {
+      const shortcodeMatch = item.postUrl.match(/\/(?:p|reel)\/([a-zA-Z0-9_-]+)/);
+      const shortcode = shortcodeMatch ? shortcodeMatch[1] : null;
+      if (shortcode) {
+        try {
+          const freshPost = await InstagramScraperService.fetchSingleInstagramPost(shortcode, item.postUrl);
+          if (freshPost?.imageUrl) {
+            activeImageUrl = freshPost.imageUrl;
+            if (freshPost.caption && (!activeCaption || activeCaption.length < freshPost.caption.length)) {
+              activeCaption = freshPost.caption;
+            }
+            // Guardar inmediatamente la imagen fresca en la base de datos para recuperar la miniatura rota
+            await prisma.aiJobQueue.update({
+              where: { id },
+              data: {
+                imageUrl: activeImageUrl,
+                captionText: activeCaption,
+              },
+            });
+          }
+        } catch (scrapeErr) {
+          console.warn(`[reExtractQueueItem] Error refrescando post ${shortcode} de Instagram:`, scrapeErr);
+        }
+      }
+    }
+
     // Re-analizar desde cero forzando la imagen como fuente principal
     const jobData = await AIService.parseJobFromPost({
-      caption: item.captionText || '',
-      imageUrl: item.imageUrl || undefined,
+      caption: activeCaption,
+      imageUrl: activeImageUrl,
       postUrl: item.postUrl || undefined,
     });
 
@@ -681,6 +712,7 @@ export class AIQueueService {
       data: {
         extractedData: JSON.stringify(jobData),
         isJobOffer: jobData.isJobOffer,
+        imageUrl: activeImageUrl || item.imageUrl,
       },
     });
 
@@ -700,8 +732,8 @@ export class AIQueueService {
                 instagramPostId: extraPostId,
                 postUrl: item.postUrl,
                 postDate: item.postDate,
-                imageUrl: item.imageUrl,
-                captionText: `[Vacante ${idx + 2} del carrusel] ${item.captionText || ''}`,
+                imageUrl: activeImageUrl || item.imageUrl,
+                captionText: `[Vacante ${idx + 2} del carrusel] ${activeCaption || ''}`,
                 isJobOffer: true,
                 status: 'PENDING',
                 extractedData: JSON.stringify(extraJob),
