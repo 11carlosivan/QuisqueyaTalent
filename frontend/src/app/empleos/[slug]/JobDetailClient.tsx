@@ -31,7 +31,12 @@ import {
   LogIn,
   Edit3,
   Users,
+  Lock,
+  UserPlus,
+  Copy,
+  Mail,
 } from 'lucide-react';
+import { toast } from '@/components/Toast';
 
 interface JobDetailClientProps {
   initialJob?: any;
@@ -61,6 +66,7 @@ export default function JobDetailClient({
   const [checkingResume, setCheckingResume] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applySuccess, setApplySuccess] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -575,41 +581,105 @@ export default function JobDetailClient({
                 </div>
               ) : jobData.applyMethod === 'EMAIL' ? (
                 /* MÉTODO POR CORREO ELECTRÓNICO (ACTIVO) */
-                <div className="space-y-4">
-                  <div className="p-4 bg-indigo-50/80 border border-indigo-200 rounded-2xl space-y-2.5">
-                    <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
-                      <span className="p-1 bg-indigo-600 text-white rounded-md">
-                        <Send className="w-3.5 h-3.5" />
-                      </span>
-                      Recepción Directa por Correo
+                !user ? (
+                  /* ESTADO BLOQUEADO: REQUIERE REGISTRO / INICIO DE SESIÓN */
+                  <div className="space-y-4">
+                    <div className="p-5 bg-gradient-to-br from-indigo-50/90 to-blue-50/90 border border-indigo-200/90 rounded-2xl space-y-3 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
+                          <span className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-xs">
+                            <Mail className="w-3.5 h-3.5" />
+                          </span>
+                          Recepción Directa por Correo
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100/90 border border-amber-300/80 px-2.5 py-0.5 rounded-full">
+                          <Lock className="w-3 h-3 text-amber-600" /> Correo protegido
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Esta empresa recibe los currículums directamente en su correo corporativo. Para proteger los datos de contacto y evitar spam, debes registrarte o iniciar sesión para ver el correo y postularte.
+                      </p>
+
+                      {/* Vista previa protegida / ofuscada */}
+                      <div className="relative overflow-hidden rounded-xl border border-indigo-200 bg-white/80 p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2 font-mono text-xs text-slate-400 select-none blur-[4px]">
+                          <Mail className="w-3.5 h-3.5 text-slate-400" />
+                          <span>rrhh-seleccion@empresa.com.do</span>
+                        </div>
+                        <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                          <Lock className="w-2.5 h-2.5" /> Inicia sesión para ver
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-xs text-indigo-900 leading-relaxed">
-                      Esta empresa prefiere recibir las hojas de vida y solicitudes directamente en su correo corporativo.
-                    </p>
-                    <div className="p-2.5 bg-white rounded-xl border border-indigo-200 text-xs font-mono font-bold text-indigo-900 break-all select-all">
-                      {jobData.applyEmail || jobData.company?.email || 'rrhh@empresa.com.do'}
+
+                    <div className="space-y-2">
+                      <Link
+                        href={`/auth/register?redirect=${encodeURIComponent(`/empleos/${jobData.slug || slug}`)}`}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold py-3.5 px-4 rounded-xl text-xs transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 text-center"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Registrarme gratis para ver el correo
+                      </Link>
+
+                      <Link
+                        href={`/auth/login?redirect=${encodeURIComponent(`/empleos/${jobData.slug || slug}`)}`}
+                        className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs transition text-center flex items-center justify-center gap-1.5"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        ¿Ya tienes cuenta? Iniciar Sesión
+                      </Link>
                     </div>
                   </div>
+                ) : (
+                  /* ESTADO DESBLOQUEADO: USUARIO AUTENTICADO */
+                  <div className="space-y-4">
+                    <div className="p-4 bg-indigo-50/80 border border-indigo-200 rounded-2xl space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
+                          <span className="p-1 bg-indigo-600 text-white rounded-md">
+                            <Send className="w-3.5 h-3.5" />
+                          </span>
+                          Recepción Directa por Correo
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                          <Check className="w-3 h-3 text-emerald-600" /> Correo visible
+                        </span>
+                      </div>
+                      <p className="text-xs text-indigo-900 leading-relaxed">
+                        Esta empresa prefiere recibir las hojas de vida y solicitudes directamente en su correo corporativo.
+                      </p>
+                      <div className="p-2.5 bg-white rounded-xl border border-indigo-200 text-xs font-mono font-bold text-indigo-900 break-all select-all">
+                        {jobData.applyEmail || jobData.company?.email || 'rrhh@empresa.com.do'}
+                      </div>
+                    </div>
 
-                  <a
-                    href={`mailto:${jobData.applyEmail || jobData.company?.email || 'rrhh@empresa.com.do'}?subject=${encodeURIComponent(`Postulación a vacante: ${jobData.title} - Quisqueya Talent`)}&body=${encodeURIComponent(`Estimado equipo de Selección:\n\nMe pongo en contacto para postularme a la vacante de ${jobData.title} publicada en Quisqueya Talent.\n\nAdjunto a este correo encontrarán mi currículum vitae en formato PDF.\n\nQuedo a su disposición para cualquier consulta.\n\nSaludos cordiales.`)}`}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-3.5 px-4 rounded-xl text-xs transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 text-center"
-                  >
-                    <Send className="w-4 h-4" />
-                    Enviar mi CV por Correo ✉️
-                  </a>
+                    <a
+                      href={`mailto:${jobData.applyEmail || jobData.company?.email || 'rrhh@empresa.com.do'}?subject=${encodeURIComponent(`Postulación a vacante: ${jobData.title} - Quisqueya Talent`)}&body=${encodeURIComponent(`Estimado equipo de Selección:\n\nMe pongo en contacto para postularme a la vacante de ${jobData.title} publicada en Quisqueya Talent.\n\nAdjunto a este correo encontrarán mi currículum vitae en formato PDF.\n\nQuedo a su disposición para cualquier consulta.\n\nSaludos cordiales.`)}`}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-3.5 px-4 rounded-xl text-xs transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 text-center"
+                    >
+                      <Send className="w-4 h-4" />
+                      Enviar mi CV por Correo ✉️
+                    </a>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(jobData.applyEmail || jobData.company?.email || '');
-                      alert('Correo copiado al portapapeles');
-                    }}
-                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-xl text-xs transition text-center cursor-pointer"
-                  >
-                    Copiar dirección de correo
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const emailToCopy = jobData.applyEmail || jobData.company?.email || '';
+                        if (emailToCopy) {
+                          navigator.clipboard.writeText(emailToCopy);
+                          setCopiedEmail(true);
+                          setTimeout(() => setCopiedEmail(false), 2500);
+                          toast.success('Dirección de correo copiada al portapapeles');
+                        }
+                      }}
+                      className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-xl text-xs transition text-center cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      {copiedEmail ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedEmail ? '¡Correo copiado!' : 'Copiar dirección de correo'}
+                    </button>
+                  </div>
+                )
               ) : (
                 /* MÉTODO POR LA PLATAFORMA (ATS ACTIVO) */
                 <>

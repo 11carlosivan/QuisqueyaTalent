@@ -211,4 +211,120 @@ router.post('/clean-demo-data', requireRole(Role.SUPER_ADMIN), async (_req: Requ
   }
 });
 
+// 9. Listado completo de usuarios registrados en el sistema
+router.get('/users', async (req: Request, res: Response) => {
+  try {
+    const { q, role, status } = req.query;
+
+    const where: any = {};
+
+    if (role && role !== 'all') {
+      where.role = role as Role;
+    }
+
+    if (status === 'active') {
+      where.isActive = true;
+    } else if (status === 'inactive') {
+      where.isActive = false;
+    }
+
+    if (q) {
+      const searchStr = String(q).trim();
+      where.OR = [
+        { email: { contains: searchStr } },
+        { profile: { firstName: { contains: searchStr } } },
+        { profile: { lastName: { contains: searchStr } } },
+        { profile: { phone: { contains: searchStr } } },
+        { profile: { documentId: { contains: searchStr } } },
+      ];
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        isEmailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+        profile: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            province: true,
+            city: true,
+            headline: true,
+            avatarUrl: true,
+            documentId: true,
+          },
+        },
+        companyMemberships: {
+          select: {
+            id: true,
+            role: true,
+            company: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                logoUrl: true,
+                isVerified: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            applications: true,
+            resumes: true,
+            savedJobs: true,
+          },
+        },
+      },
+    });
+
+    return res.json(users);
+  } catch (error: any) {
+    console.error('Error listando usuarios:', error);
+    return res.status(500).json({ error: 'Error al listar usuarios del sistema' });
+  }
+});
+
+// 10. Cambiar estado activo / inactivo de un usuario
+router.patch('/users/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: String(id) } });
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Evitar que se desactive al SUPER_ADMIN principal
+    if (user.role === Role.SUPER_ADMIN && isActive === false) {
+      return res.status(400).json({ error: 'No es posible desactivar una cuenta con rol Super Administrador' });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: String(id) },
+      data: { isActive: Boolean(isActive) },
+      select: { id: true, email: true, isActive: true },
+    });
+
+    return res.json({
+      message: `Usuario ${updated.isActive ? 'activado' : 'desactivado'} con éxito`,
+      user: updated,
+    });
+  } catch (error: any) {
+    console.error('Error al actualizar estado del usuario:', error);
+    return res.status(500).json({ error: 'Error al cambiar estado del usuario' });
+  }
+});
+
 export default router;

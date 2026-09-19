@@ -43,3 +43,4 @@ icono instagram.png
 # Archivos subidos por usuarios
 backend/uploads/*
 !backend/uploads/**/.gitkeep
+*.traineddata

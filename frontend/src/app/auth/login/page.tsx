@@ -46,7 +46,10 @@ function LoginContent() {
 
       if (res.ok && data.token) {
         login(data.token, data.user);
-        if (data.user.role === 'JOB_SEEKER') {
+        const redirect = searchParams.get('redirect');
+        if (redirect && redirect.startsWith('/')) {
+          router.push(redirect);
+        } else if (data.user.role === 'JOB_SEEKER') {
           router.push('/dashboard/candidato');
         } else if (data.user.role === 'ADMIN' || data.user.role === 'SUPER_ADMIN') {
           router.push('/admin');

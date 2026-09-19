@@ -92,7 +92,10 @@ function RegisterContent() {
 
       if (res.ok && data.token) {
         login(data.token, data.user);
-        if (tab === 'candidate') {
+        const redirect = searchParams.get('redirect');
+        if (redirect && redirect.startsWith('/')) {
+          router.push(redirect);
+        } else if (tab === 'candidate') {
           router.push('/dashboard/candidato/cv');
         } else {
           router.push('/dashboard/empresa/vacantes/nueva');

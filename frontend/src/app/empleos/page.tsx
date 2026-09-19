@@ -19,6 +19,8 @@ import {
   Filter,
   Loader2,
   RotateCcw,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface Job {
@@ -54,6 +56,12 @@ function EmpleosContent() {
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
   const [selectedWorkplace, setSelectedWorkplace] = useState(searchParams.get('workplaceType') || 'all');
 
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const limit = 12;
+
   const provincesRD = [
     'Distrito Nacional',
     'Santo Domingo',
@@ -87,6 +95,12 @@ function EmpleosContent() {
     if (paramQ) setSearchQuery(paramQ);
   }, [searchParams]);
 
+  // Al cambiar filtros, resetear a página 1
+  const handleFilterChange = (setter: (val: string) => void, val: string) => {
+    setter(val);
+    setCurrentPage(1);
+  };
+
   const fetchJobs = async () => {
     setLoading(true);
     try {
@@ -95,11 +109,17 @@ function EmpleosContent() {
       if (selectedProvince !== 'all') params.set('province', selectedProvince);
       if (selectedCategory !== 'all') params.set('category', selectedCategory);
       if (selectedWorkplace !== 'all') params.set('workplaceType', selectedWorkplace);
+      params.set('page', String(currentPage));
+      params.set('limit', String(limit));
 
       const res = await fetch(`${API_URL}/api/jobs?${params.toString()}`);
       const data = await res.json();
       if (data && data.data) {
         setJobs(data.data);
+      }
+      if (data && data.pagination) {
+        setTotalJobs(data.pagination.total ?? 0);
+        setTotalPages(data.pagination.totalPages || 1);
       }
     } catch (e) {
       console.error('Error cargando vacantes:', e);
@@ -111,13 +131,46 @@ function EmpleosContent() {
   useEffect(() => {
     fetchJobs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedProvince, selectedCategory, selectedWorkplace]);
+  }, [searchQuery, selectedProvince, selectedCategory, selectedWorkplace, currentPage]);
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedProvince('all');
     setSelectedCategory('all');
     setSelectedWorkplace('all');
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 120, behavior: 'smooth' });
+  };
+
+  const getPageNumbers = () => {
+    const delta = 2;
+    const range: (number | string)[] = [];
+    for (
+      let i = Math.max(2, currentPage - delta);
+      i <= Math.min(totalPages - 1, currentPage + delta);
+      i++
+    ) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      range.unshift('...');
+    }
+    if (currentPage + delta < totalPages - 1) {
+      range.push('...');
+    }
+
+    range.unshift(1);
+    if (totalPages > 1) {
+      range.push(totalPages);
+    }
+
+    return range;
   };
 
   return (
@@ -147,7 +200,7 @@ function EmpleosContent() {
                 type="text"
                 placeholder="Puesto o habilidad..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleFilterChange(setSearchQuery, e.target.value)}
                 className="w-full bg-transparent text-xs focus:outline-none placeholder-slate-400 font-medium"
               />
             </div>
@@ -157,7 +210,7 @@ function EmpleosContent() {
               <Briefcase className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={(e) => handleFilterChange(setSelectedCategory, e.target.value)}
                 className="w-full bg-transparent text-xs focus:outline-none text-slate-700 font-medium cursor-pointer"
               >
                 <option value="all">Todas las categorías</option>
@@ -174,7 +227,7 @@ function EmpleosContent() {
               <MapPin className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
               <select
                 value={selectedProvince}
-                onChange={(e) => setSelectedProvince(e.target.value)}
+                onChange={(e) => handleFilterChange(setSelectedProvince, e.target.value)}
                 className="w-full bg-transparent text-xs focus:outline-none text-slate-700 font-medium cursor-pointer"
               >
                 <option value="all">📍 Todo el país</option>
@@ -191,7 +244,7 @@ function EmpleosContent() {
               <Filter className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
               <select
                 value={selectedWorkplace}
-                onChange={(e) => setSelectedWorkplace(e.target.value)}
+                onChange={(e) => handleFilterChange(setSelectedWorkplace, e.target.value)}
                 className="w-full bg-transparent text-xs focus:outline-none text-slate-700 font-medium cursor-pointer"
               >
                 <option value="all">Cualquier modalidad</option>
@@ -204,15 +257,25 @@ function EmpleosContent() {
         </div>
 
         {/* Barra de estado y restablecer */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="text-xs text-slate-500 font-medium">
-            Mostrando <span className="font-bold text-slate-900">{jobs.length}</span> empleos disponibles
+            {totalJobs > 0 ? (
+              <>
+                Mostrando <span className="font-bold text-slate-900">{(currentPage - 1) * limit + 1}</span> -{' '}
+                <span className="font-bold text-slate-900">{Math.min(currentPage * limit, totalJobs)}</span> de{' '}
+                <span className="font-bold text-blue-600">{totalJobs}</span> vacantes disponibles
+              </>
+            ) : loading ? (
+              'Buscando vacantes...'
+            ) : (
+              '0 vacantes encontradas'
+            )}
           </div>
 
           {(searchQuery || selectedCategory !== 'all' || selectedProvince !== 'all' || selectedWorkplace !== 'all') && (
             <button
               onClick={handleResetFilters}
-              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs"
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs self-start sm:self-auto"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Limpiar filtros
             </button>
@@ -355,6 +418,59 @@ function EmpleosContent() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Controles de Paginación */}
+        {totalPages > 1 && (
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-slate-500 font-medium order-2 sm:order-1">
+              Página <span className="font-bold text-slate-900">{currentPage}</span> de{' '}
+              <span className="font-bold text-slate-900">{totalPages}</span> ({totalJobs} empleos en total)
+            </p>
+
+            <div className="flex items-center gap-1.5 order-1 sm:order-2 flex-wrap justify-center">
+              {/* Botón Anterior */}
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage <= 1 || loading}
+                className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" /> Anterior
+              </button>
+
+              {/* Números de página */}
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((p, idx) =>
+                  typeof p === 'number' ? (
+                    <button
+                      key={idx}
+                      onClick={() => handlePageChange(p)}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center ${
+                        currentPage === p
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={idx} className="px-1 text-slate-400 font-bold text-xs select-none">
+                      {p}
+                    </span>
+                  )
+                )}
+              </div>
+
+              {/* Botón Siguiente */}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages || loading}
+                className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+              >
+                Siguiente <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
 

@@ -619,6 +619,30 @@ export class AIQueueService {
       },
     });
 
+    // Si ya existe un Job vinculado, sincronizar los campos editados
+    if (item.jobId) {
+      try {
+        await prisma.job.update({
+          where: { id: item.jobId },
+          data: {
+            title: updatedData.title,
+            category: updatedData.category || 'Otros',
+            province: updatedData.province,
+            city: updatedData.city || undefined,
+            applyEmail: updatedData.applyEmail || undefined,
+            salaryMin: updatedData.salaryMin ?? undefined,
+            salaryMax: updatedData.salaryMax ?? undefined,
+            description: updatedData.description,
+            responsibilities: updatedData.responsibilities,
+            requirements: updatedData.requirements,
+            benefits: updatedData.benefits,
+          },
+        });
+      } catch (jobSyncErr) {
+        console.error(`⚠️ Error sincronizando Job vinculado ${item.jobId}:`, jobSyncErr);
+      }
+    }
+
     return {
       item: updated,
       extractedData: updatedData,
@@ -715,6 +739,7 @@ export class AIQueueService {
             data: {
               companyId: officialCompany.id,
               title: jobData.title,
+              category: jobData.category || 'Otros',
               slug,
               description: fullDescription,
               requirements: jobData.requirements,

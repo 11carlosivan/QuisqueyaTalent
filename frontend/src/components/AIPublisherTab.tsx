@@ -1901,18 +1901,14 @@ export default function AIPublisherTab({ token }: AIPublisherTabProps) {
                     onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
                   >
-                    <option value="Alimentos & Gastronomía">Alimentos & Gastronomía</option>
-                    <option value="Logística & Transporte">Logística & Transporte</option>
-                    <option value="Logística & Operaciones">Logística & Operaciones</option>
-                    <option value="Ventas & Comercio">Ventas & Comercio</option>
-                    <option value="Salud & Medicina">Salud & Medicina</option>
-                    <option value="Mantenimiento & Limpieza">Mantenimiento & Limpieza</option>
-                    <option value="Seguridad">Seguridad</option>
-                    <option value="Administración & Oficina">Administración & Oficina</option>
-                    <option value="Banca & Finanzas">Banca & Finanzas</option>
-                    <option value="Recursos Humanos">Recursos Humanos</option>
-                    <option value="Call Center & BPO">Call Center & BPO</option>
-                    <option value="Tecnología">Tecnología</option>
+                    <option value="Turismo y Hotelería">Turismo y Hotelería (Panadería, Cocina, Hoteles)</option>
+                    <option value="Tecnología e Informática">Tecnología e Informática</option>
+                    <option value="Call Center y BPO">Call Center y BPO</option>
+                    <option value="Ventas y Comercio B2B">Ventas y Comercio B2B</option>
+                    <option value="Banca y Finanzas">Banca y Finanzas</option>
+                    <option value="Zonas Francas & Logística">Zonas Francas & Logística (Choferes, Almacén)</option>
+                    <option value="Salud y Medicina">Salud y Medicina</option>
+                    <option value="Administración y Recursos Humanos">Administración y Recursos Humanos</option>
                     <option value="Otros">Otros</option>
                   </select>
                 </div>
