@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { JobStatus, JobType, WorkplaceType, ExperienceLevel, Role } from '@prisma/client';
 import prisma from '../../config/prisma';
 import { authenticate, requireRole } from '../../middleware/auth';
+import SocialService from '../social/social.service';
 
 const router = Router();
 
@@ -289,6 +290,17 @@ router.post('/', authenticate, requireRole(Role.COMPANY_OWNER, Role.COMPANY_RECR
         skills: true,
       },
     });
+
+    // Autodifusión en redes sociales (WhatsApp, X, Meta) en segundo plano si está activada
+    SocialService.getSettings()
+      .then((socialSettings) => {
+        if (socialSettings?.autoShareOnPublish) {
+          SocialService.broadcastJob(job.id).catch((err) => {
+            console.error(`⚠️ [SocialAutoShare] Error difundiendo vacante ${job.id}:`, err?.message || err);
+          });
+        }
+      })
+      .catch(() => {});
 
     return res.status(201).json({ message: 'Vacante publicada exitosamente', job });
   } catch (error: any) {

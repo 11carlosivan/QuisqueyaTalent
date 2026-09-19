@@ -37,8 +37,10 @@ import {
   FileText,
   Filter,
   RotateCcw,
+  Share2,
 } from 'lucide-react';
 import AIPublisherTab from '@/components/AIPublisherTab';
+import SocialMediaTab from '@/components/SocialMediaTab';
 
 export default function AdminDashboardPage() {
   const { user, token, isLoading } = useAuth();
@@ -56,7 +58,7 @@ export default function AdminDashboardPage() {
   const [storageGuard, setStorageGuard] = useState<any>(null);
   const [savingStorage, setSavingStorage] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ai-publisher' | 'users' | 'ads' | 'moderation' | 'companies' | 'storage' | 'system'>('ai-publisher');
+  const [activeTab, setActiveTab] = useState<'ai-publisher' | 'social-media' | 'users' | 'ads' | 'moderation' | 'companies' | 'storage' | 'system'>('ai-publisher');
   const [cleaningSystem, setCleaningSystem] = useState(false);
 
   const fetchAdminData = async () => {
@@ -366,6 +368,19 @@ export default function AdminDashboardPage() {
             </span>
           </button>
           <button
+            onClick={() => setActiveTab('social-media')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'social-media'
+                ? 'bg-gradient-to-r from-emerald-600 via-blue-600 to-indigo-600 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Share2 className="w-4 h-4 text-emerald-400" /> 🌐 Difusión en Redes (WhatsApp, X, Meta)
+            <span className="bg-emerald-400 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+              NUEVO
+            </span>
+          </button>
+          <button
             onClick={() => setActiveTab('users')}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
               activeTab === 'users'
@@ -432,6 +447,9 @@ export default function AdminDashboardPage() {
 
         {/* PESTAÑA: PUBLICADOR IA DE VACANTES (INSTAGRAM) */}
         {activeTab === 'ai-publisher' && token && <AIPublisherTab token={token} />}
+
+        {/* PESTAÑA: DIFUSIÓN EN REDES SOCIALES (WHATSAPP, X, META) */}
+        {activeTab === 'social-media' && token && <SocialMediaTab token={token} />}
 
         {/* PESTAÑA: USUARIOS REGISTRADOS EN EL SISTEMA */}
         {activeTab === 'users' && (

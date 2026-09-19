@@ -5,6 +5,7 @@ import prisma from '../../config/prisma';
 import AIService, { ExtractedJobData } from './ai.service';
 import OfficialCompanyService from '../companies/official-company.service';
 import { InstagramScraperService } from './instagram-scraper.service';
+import SocialService from '../social/social.service';
 
 const uploadsDir = path.join(process.cwd(), 'uploads');
 const configFile = path.join(uploadsDir, 'ai-config.json');
@@ -447,6 +448,19 @@ export class AIQueueService {
         publishedAt: shouldPublishNow ? new Date() : null,
       },
     });
+
+    // 8. Autodifusión en redes sociales (WhatsApp, X, Meta) en segundo plano si está activada
+    if (shouldPublishNow) {
+      SocialService.getSettings()
+        .then((socialSettings) => {
+          if (socialSettings?.autoShareOnPublish) {
+            SocialService.broadcastJob(job.id).catch((err) => {
+              console.error(`⚠️ [SocialAutoShare] Error difundiendo vacante ${job.id}:`, err?.message || err);
+            });
+          }
+        })
+        .catch(() => {});
+    }
 
     return {
       status: updatedQueue.status,

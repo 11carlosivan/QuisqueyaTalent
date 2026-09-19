@@ -10,6 +10,7 @@ import candidatesRoutes from './modules/candidates/candidates.routes';
 import aiRoutes from './modules/ai/ai.routes';
 import adsRoutes from './modules/ads/ads.routes';
 import adminRoutes from './modules/admin/admin.routes';
+import socialRoutes from './modules/social/social.routes';
 import prisma from './config/prisma';
 
 export const createApp = () => {
@@ -49,6 +50,7 @@ export const createApp = () => {
   app.use('/api/ai', aiRoutes);
   app.use('/api/ads', adsRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/social', socialRoutes);
 
   // Manejador 404
   app.use((_req: Request, res: Response) => {

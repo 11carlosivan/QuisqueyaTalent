@@ -454,3 +454,54 @@ model AiJobSetting {
   @@map("ai_job_settings")
 }
 
+model SocialMediaSetting {
+  id                    String    @id @default("default")
+  autoShareOnPublish    Boolean   @default(false)
+  
+  // WhatsApp
+  whatsappActive        Boolean   @default(false)
+  whatsappWebhookUrl    String?   @db.Text
+  whatsappChannelId     String?   // Ej. ID de canal o grupo de WhatsApp (ej. 120363xxx@g.us)
+  whatsappApiKey        String?   @db.Text
+  whatsappTemplate      String?   @db.Text
+
+  // X / Twitter
+  twitterActive         Boolean   @default(false)
+  twitterApiKey         String?   @db.Text
+  twitterApiSecret      String?   @db.Text
+  twitterAccessToken    String?   @db.Text
+  twitterAccessSecret   String?   @db.Text
+  twitterTemplate       String?   @db.Text
+
+  // Facebook Pages
+  facebookActive        Boolean   @default(false)
+  facebookPageId        String?
+  facebookAccessToken   String?   @db.Text
+
+  // Instagram Feed
+  instagramActive       Boolean   @default(false)
+  instagramAccountId    String?   // Instagram Business Account ID vinculado a la página de Facebook
+  instagramAccessToken  String?   @db.Text
+
+  updatedAt             DateTime  @updatedAt
+
+  @@map("social_media_settings")
+}
+
+model SocialShareLog {
+  id              String    @id @default(uuid())
+  jobId           String
+  channel         String    // WHATSAPP, TWITTER, FACEBOOK, INSTAGRAM
+  status          String    // SUCCESS, FAILED, PENDING
+  externalPostId  String?   // ID devuelto por la red social (tweet id, post id, etc.)
+  messageSnippet  String?   @db.Text
+  responsePayload String?   @db.Text
+  errorMessage    String?   @db.Text
+  createdAt       DateTime  @default(now())
+
+  @@index([jobId])
+  @@index([channel])
+  @@index([status])
+  @@map("social_share_logs")
+}
+
